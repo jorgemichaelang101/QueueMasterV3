@@ -1,11 +1,14 @@
 <script lang="ts">
   import { sessionStore } from '../state/session.svelte';
-  import type { Player } from '../types';
+  import type { Player, Match } from '../types';
   import { formatWaitMinutes } from '../engine/time';
   import SkillBadge from '../components/SkillBadge.svelte';
   import WandModal from '../components/WandModal.svelte';
+  import ManualMatchModal from '../components/ManualMatchModal.svelte';
 
   let isWandModalOpen = $state(false);
+  let isManualModalOpen = $state(false);
+  let editingMatch = $state<Match | null>(null);
 
   let now = $state(Date.now());
   $effect(() => {
@@ -38,24 +41,52 @@
     sessionStore.removeFromNextUp(matchId);
   }
 
+  function handleEditNextUp(match: Match) {
+    editingMatch = match;
+    isManualModalOpen = true;
+  }
+
+  function handleMoveQueue(idx: number, dir: 'up' | 'down') {
+    sessionStore.moveNextUp(idx, dir);
+  }
+
+  function handleOpenManualBuilder() {
+    editingMatch = null;
+    isManualModalOpen = true;
+  }
+
   function handleToggleSitOut(pId: string) {
     sessionStore.toggleSitOut(pId);
   }
 </script>
 
 <div class="queue-view">
-  <!-- Top Magic Wand Banner -->
+  <!-- Top Matchmaker Controls Card -->
   <div class="wand-banner-card glass-card">
-    <div class="wand-text-group">
-      <div class="wand-sparkle">✨</div>
-      <div>
-        <h3>Magic Matchmaker</h3>
-        <p class="wand-subtext">Weights: Wait · Games · Repetition · Skill</p>
+    <div class="banner-top-row">
+      <div class="wand-text-group">
+        <div class="wand-sparkle">✨</div>
+        <div>
+          <h3>Queue Matchmaker</h3>
+          <p class="wand-subtext">Smart Wand or Manual QM Pairings</p>
+        </div>
       </div>
     </div>
-    <button class="wand-btn main-wand-trigger" onclick={() => isWandModalOpen = true} type="button">
-      ✨ Magic Wand
-    </button>
+
+    <!-- Matchmaker Buttons Row -->
+    <div class="matchmaker-actions-row">
+      <button class="wand-btn main-wand-trigger" onclick={() => isWandModalOpen = true} type="button">
+        ✨ Magic Wand
+      </button>
+
+      <button class="btn-secondary manual-match-trigger" onclick={handleOpenManualBuilder} type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        + Manual Match
+      </button>
+    </div>
   </div>
 
   <!-- Queue Stats Bar -->
@@ -74,7 +105,7 @@
     </div>
   </div>
 
-  <!-- Next Up Section -->
+  <!-- Next Up Section (Pre-queued Matches) -->
   {#if sessionStore.session && sessionStore.session.nextUp.length > 0}
     <div class="section-group">
       <div class="section-header">
@@ -86,15 +117,38 @@
         {#each sessionStore.session.nextUp as match, idx (match.id)}
           <div class="nextup-card glass-card">
             <div class="nextup-header">
-              <span class="nextup-pos">#{idx + 1} Next in Line</span>
-              <button
-                class="btn-ghost remove-nextup-btn"
-                onclick={() => handleRemoveNextUp(match.id)}
-                type="button"
-                title="Return players to waiting pool"
-              >
-                ✕ Cancel
-              </button>
+              <div class="pos-group">
+                <span class="nextup-pos">#{idx + 1} In Line</span>
+
+                <!-- Order Move Buttons -->
+                <div class="reorder-btns">
+                  {#if idx > 0}
+                    <button class="reorder-btn" onclick={() => handleMoveQueue(idx, 'up')} type="button" title="Move Up">▲</button>
+                  {/if}
+                  {#if idx < sessionStore.session.nextUp.length - 1}
+                    <button class="reorder-btn" onclick={() => handleMoveQueue(idx, 'down')} type="button" title="Move Down">▼</button>
+                  {/if}
+                </div>
+              </div>
+
+              <div class="card-action-btns">
+                <button
+                  class="btn-ghost edit-nextup-btn"
+                  onclick={() => handleEditNextUp(match)}
+                  type="button"
+                  title="Edit players in this match"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  class="btn-ghost remove-nextup-btn"
+                  onclick={() => handleRemoveNextUp(match.id)}
+                  type="button"
+                  title="Return players to waiting pool"
+                >
+                  ✕ Cancel
+                </button>
+              </div>
             </div>
 
             <div class="nextup-teams">
@@ -180,9 +234,19 @@
   </div>
 </div>
 
+<!-- Modals -->
 <WandModal
   isOpen={isWandModalOpen}
   onClose={() => isWandModalOpen = false}
+/>
+
+<ManualMatchModal
+  isOpen={isManualModalOpen}
+  editingMatch={editingMatch}
+  onClose={() => {
+    isManualModalOpen = false;
+    editingMatch = null;
+  }}
 />
 
 <style>
@@ -194,11 +258,17 @@
 
   .wand-banner-card {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 14px;
     padding: 16px;
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(56, 189, 248, 0.08) 100%);
     border: 1px solid rgba(139, 92, 246, 0.25);
+  }
+
+  .banner-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
 
   .wand-text-group {
@@ -216,10 +286,24 @@
     color: var(--text-secondary);
   }
 
+  .matchmaker-actions-row {
+    display: flex;
+    gap: 10px;
+  }
+
   .main-wand-trigger {
-    padding: 10px 18px;
+    flex: 1.3;
+    padding: 12px 16px;
     font-size: 14px;
     white-space: nowrap;
+  }
+
+  .manual-match-trigger {
+    flex: 1;
+    padding: 12px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    border-color: rgba(56, 189, 248, 0.3);
   }
 
   .queue-stats-row {
@@ -284,10 +368,44 @@
     margin-bottom: 8px;
   }
 
+  .pos-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   .nextup-pos {
     font-size: 12px;
     font-weight: 700;
     color: var(--accent-violet);
+  }
+
+  .reorder-btns {
+    display: flex;
+    gap: 2px;
+  }
+
+  .reorder-btn {
+    font-size: 10px;
+    padding: 2px 4px;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+  }
+
+  .reorder-btn:hover {
+    color: var(--accent-cyan);
+  }
+
+  .card-action-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .edit-nextup-btn {
+    font-size: 11px;
+    padding: 2px 6px;
+    color: var(--accent-cyan);
   }
 
   .remove-nextup-btn {

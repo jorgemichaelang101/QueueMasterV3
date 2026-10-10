@@ -275,6 +275,37 @@ class SessionStore {
     this.autoAssignCourts();
   }
 
+  addManualMatch(teamA: string[], teamB: string[]): Match | null {
+    if (!this.session) return null;
+    const match: Match = {
+      id: `match_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      teamA,
+      teamB,
+    };
+    this.session.nextUp.push(match);
+    this.autoAssignCourts();
+    return match;
+  }
+
+  updateNextUpMatch(matchId: string, teamA: string[], teamB: string[]) {
+    if (!this.session) return;
+    const match = this.session.nextUp.find(m => m.id === matchId);
+    if (match) {
+      match.teamA = teamA;
+      match.teamB = teamB;
+    }
+  }
+
+  moveNextUp(index: number, direction: 'up' | 'down') {
+    if (!this.session) return;
+    const list = this.session.nextUp;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+  }
+
   removeFromNextUp(matchId: string) {
     if (!this.session) return;
     this.session.nextUp = this.session.nextUp.filter(m => m.id !== matchId);
