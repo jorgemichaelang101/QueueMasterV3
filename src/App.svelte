@@ -4,12 +4,13 @@
   import CourtsView from './lib/views/CourtsView.svelte';
   import QueueView from './lib/views/QueueView.svelte';
   import PlayersView from './lib/views/PlayersView.svelte';
+  import HistoryView from './lib/views/HistoryView.svelte';
   import CostsView from './lib/views/CostsView.svelte';
   import BottomNav from './lib/components/BottomNav.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
   import EndSessionModal from './lib/components/EndSessionModal.svelte';
 
-  let activeTab = $state<'courts' | 'queue' | 'players' | 'costs'>('courts');
+  let activeTab = $state<'courts' | 'queue' | 'players' | 'history' | 'costs'>('courts');
   let isSettingsOpen = $state(false);
   let isEndSessionOpen = $state(false);
 </script>
@@ -69,11 +70,16 @@
     <!-- Main Tab View Content -->
     <main class="app-container">
       {#if activeTab === 'courts'}
-        <CourtsView onOpenQueueTab={() => activeTab = 'queue'} />
+        <CourtsView
+          onOpenQueueTab={() => activeTab = 'queue'}
+          onOpenHistoryTab={() => activeTab = 'history'}
+        />
       {:else if activeTab === 'queue'}
         <QueueView />
       {:else if activeTab === 'players'}
         <PlayersView />
+      {:else if activeTab === 'history'}
+        <HistoryView />
       {:else if activeTab === 'costs'}
         <CostsView />
       {/if}

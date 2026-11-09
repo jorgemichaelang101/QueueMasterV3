@@ -75,5 +75,20 @@ describe('SessionStore operations', () => {
     // All players should have gamesPlayed = 1
     const player1 = sessionStore.session?.players.find(p => p.id === p1.id);
     expect(player1?.gamesPlayed).toBe(1);
+    expect(sessionStore.session?.history[0].courtNumber).toBe(1);
+  });
+
+  it('prevents adding players with duplicate names (case-insensitive)', () => {
+    sessionStore.startSession('badminton', 'doubles', 1, '₱');
+    const first = sessionStore.addPlayer('Alice', 3);
+    expect(first).not.toBeNull();
+
+    const exactDup = sessionStore.addPlayer('Alice', 4);
+    expect(exactDup).toBeNull();
+
+    const caseDup = sessionStore.addPlayer('  alice  ', 2);
+    expect(caseDup).toBeNull();
+
+    expect(sessionStore.session?.players.length).toBe(1);
   });
 });

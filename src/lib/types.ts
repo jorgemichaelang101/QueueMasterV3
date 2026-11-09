@@ -31,6 +31,7 @@ export interface Match {
   teamA: string[]; // Player IDs (length 1 for singles, 2 for doubles)
   teamB: string[]; // Player IDs
   courtId?: string;
+  courtNumber?: number;
   startedAt?: number;
   endedAt?: number;
   winner?: 'A' | 'B' | null;

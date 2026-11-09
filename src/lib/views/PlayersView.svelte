@@ -8,6 +8,7 @@
   let newName = $state('');
   let newSkill = $state<SkillTier>(3); // Default High Beginner
   let searchFilter = $state('');
+  let addError = $state('');
 
   let now = $state(Date.now());
   $effect(() => {
@@ -18,9 +19,22 @@
   });
 
   function handleAdd() {
-    if (!newName.trim()) return;
-    sessionStore.addPlayer(newName, newSkill);
-    newName = '';
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+
+    const existing = sessionStore.session?.players.some(
+      p => p.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (existing) {
+      addError = `Player "${trimmed}" is already in the session.`;
+      return;
+    }
+
+    const added = sessionStore.addPlayer(trimmed, newSkill);
+    if (added) {
+      newName = '';
+      addError = '';
+    }
   }
 
   function getPlayerStatusInfo(p: Player): { label: string; type: string } {
@@ -73,16 +87,23 @@
     <form class="add-form" onsubmit={(e) => { e.preventDefault(); handleAdd(); }}>
       <div class="name-input-row">
         <input
-          class="name-input"
+          class="name-input {addError ? 'input-error' : ''}"
           type="text"
           placeholder="Enter player name..."
           bind:value={newName}
+          oninput={() => { if (addError) addError = ''; }}
           maxlength="28"
         />
         <button class="btn-primary add-submit-btn" type="submit">
           + Add
         </button>
       </div>
+
+      {#if addError}
+        <div class="add-error-msg" role="alert">
+          ⚠️ {addError}
+        </div>
+      {/if}
 
       <!-- Skill Selection Pills -->
       <div class="skill-picker-row">
@@ -217,7 +238,23 @@
 
   .name-input {
     flex: 1;
+    min-width: 0;
     font-size: 15px;
+  }
+
+  .name-input.input-error {
+    border-color: var(--accent-rose);
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.15);
+  }
+
+  .add-error-msg {
+    font-size: 12px;
+    font-weight: 600;
+    color: #fb7185;
+    background: rgba(244, 63, 94, 0.12);
+    border: 1px solid rgba(244, 63, 94, 0.25);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
   }
 
   .add-submit-btn {

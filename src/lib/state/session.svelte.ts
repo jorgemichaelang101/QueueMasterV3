@@ -112,6 +112,11 @@ class SessionStore {
   addPlayer(name: string, skill: SkillTier): Player | null {
     if (!this.session || !name.trim()) return null;
     const trimmed = name.trim();
+    const isDuplicate = this.session.players.some(
+      p => p.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isDuplicate) return null;
+
     const now = Date.now();
 
     const newPlayer: Player = {
@@ -350,6 +355,7 @@ class SessionStore {
 
     const match = court.match;
     const now = Date.now();
+    match.courtNumber = court.courtNumber;
     match.endedAt = now;
     match.winner = winner || null;
     match.scoreA = scoreA ?? null;

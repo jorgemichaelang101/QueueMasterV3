@@ -286,20 +286,38 @@
 
   .inputs-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+    width: 100%;
+  }
+
+  @media (max-width: 360px) {
+    .inputs-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   .input-field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .input-field > input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .input-field label, .input-field .label-text {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-muted);
+    line-height: 1.3;
+    overflow-wrap: break-word;
   }
 
   .stepper-box {
@@ -309,9 +327,13 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     overflow: hidden;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .step-btn {
+    flex-shrink: 0;
     padding: 10px 14px;
     background: rgba(255, 255, 255, 0.06);
     font-size: 16px;
@@ -324,14 +346,23 @@
   }
 
   .stepper-input {
-    flex: 1;
+    flex: 1 1 0%;
+    min-width: 0;
+    width: 100%;
     border: none;
     background: transparent;
     text-align: center;
     font-size: 16px;
     font-weight: 700;
     padding: 8px 4px;
-    width: 40px;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  .stepper-input::-webkit-outer-spin-button,
+  .stepper-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 
   .summary-card {

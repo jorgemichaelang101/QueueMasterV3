@@ -2,8 +2,8 @@
   import { sessionStore } from '../state/session.svelte';
 
   interface Props {
-    activeTab: 'courts' | 'queue' | 'players' | 'costs';
-    onSelect: (tab: 'courts' | 'queue' | 'players' | 'costs') => void;
+    activeTab: 'courts' | 'queue' | 'players' | 'history' | 'costs';
+    onSelect: (tab: 'courts' | 'queue' | 'players' | 'history' | 'costs') => void;
   }
 
   let { activeTab, onSelect }: Props = $props();
@@ -12,8 +12,8 @@
     sessionStore.session?.courts.filter(c => c.status === 'in_use').length || 0
   );
 
-  let queuedCount = $derived(
-    (sessionStore.session?.nextUp.length || 0) + (sessionStore.getAvailablePlayers().length || 0)
+  let historyCount = $derived(
+    sessionStore.session?.history.length || 0
   );
 
   let unpaidCount = $derived(() => {
@@ -80,6 +80,24 @@
     </button>
 
     <button
+      class="nav-item {activeTab === 'history' ? 'active' : ''}"
+      onclick={() => onSelect('history')}
+      type="button"
+    >
+      <div class="icon-wrap">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+          <path d="M12 7v5l4 2"/>
+        </svg>
+        {#if historyCount > 0}
+          <span class="bubble bubble-cyan">{historyCount}</span>
+        {/if}
+      </div>
+      <span>History</span>
+    </button>
+
+    <button
       class="nav-item {activeTab === 'costs' ? 'active' : ''}"
       onclick={() => onSelect('costs')}
       type="button"
@@ -130,7 +148,7 @@
     color: var(--text-muted);
     font-size: 11px;
     font-weight: 600;
-    padding: 6px 14px;
+    padding: 6px 10px;
     border-radius: var(--radius-md);
     transition: all 0.15s ease;
     position: relative;
@@ -173,5 +191,9 @@
 
   .bubble-amber {
     background-color: var(--accent-amber);
+  }
+
+  .bubble-cyan {
+    background-color: #0284c7;
   }
 </style>

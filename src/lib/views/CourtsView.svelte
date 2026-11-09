@@ -7,9 +7,10 @@
 
   interface Props {
     onOpenQueueTab: () => void;
+    onOpenHistoryTab?: () => void;
   }
 
-  let { onOpenQueueTab }: Props = $props();
+  let { onOpenQueueTab, onOpenHistoryTab }: Props = $props();
 
   let endingCourt = $state<Court | null>(null);
   let isEndModalOpen = $state(false);
@@ -197,6 +198,13 @@
         </div>
       {/each}
     </div>
+
+    {#if sessionStore.session.history.length > 0 && onOpenHistoryTab}
+      <button class="btn-secondary view-history-banner" onclick={onOpenHistoryTab} type="button">
+        <span>📜 View Match History ({sessionStore.session.history.length} completed)</span>
+        <span>→</span>
+      </button>
+    {/if}
   {/if}
 </div>
 
@@ -436,5 +444,14 @@
     font-size: 12px;
     color: var(--accent-cyan);
     margin-top: 6px;
+  }
+
+  .view-history-banner {
+    width: 100%;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 12px 16px;
+    color: var(--accent-cyan);
+    border-color: rgba(56, 189, 248, 0.25);
   }
 </style>
