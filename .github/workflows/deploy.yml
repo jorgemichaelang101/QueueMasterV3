@@ -1,10 +1,14 @@
 name: Deploy to GitHub Pages
 
+# Automatic runs on push are disabled because GitHub Actions is unavailable
+# on this account (billing lock). Deploy locally with `npm run deploy`, which
+# pushes the build to the gh-pages branch. Re-enable the push trigger below
+# once Actions is available again.
 on:
-  push:
-    branches:
-      - main
-      - master
+  # push:
+  #   branches:
+  #     - main
+  #     - master
   workflow_dispatch:
 
 permissions:
