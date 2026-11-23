@@ -1,16 +1,17 @@
 <script lang="ts">
   import { sessionStore } from './lib/state/session.svelte';
+  import { uiStore } from './lib/state/ui.svelte';
   import SetupView from './lib/views/SetupView.svelte';
-  import CourtsView from './lib/views/CourtsView.svelte';
-  import QueueView from './lib/views/QueueView.svelte';
+  import LiveView from './lib/views/LiveView.svelte';
   import PlayersView from './lib/views/PlayersView.svelte';
-  import HistoryView from './lib/views/HistoryView.svelte';
-  import CostsView from './lib/views/CostsView.svelte';
-  import BottomNav from './lib/components/BottomNav.svelte';
+  import SessionView from './lib/views/SessionView.svelte';
+  import BottomNav, { type MainTab } from './lib/components/BottomNav.svelte';
   import SettingsModal from './lib/components/SettingsModal.svelte';
   import EndSessionModal from './lib/components/EndSessionModal.svelte';
+  import UndoToast from './lib/components/UndoToast.svelte';
+  import Icon from './lib/components/Icon.svelte';
 
-  let activeTab = $state<'courts' | 'queue' | 'players' | 'history' | 'costs'>('courts');
+  let activeTab = $state<MainTab>('live');
   let isSettingsOpen = $state(false);
   let isEndSessionOpen = $state(false);
 </script>
@@ -21,47 +22,45 @@
       <SetupView />
     </main>
   {:else}
-    <!-- Top Header Bar -->
+    <!-- Compact 48px Top Header Bar -->
     <header class="app-topbar">
       <div class="topbar-inner">
         <div class="session-brand">
-          <div class="sport-icon-bubble">
-            {sessionStore.session.sport === 'badminton' ? '🏸' : '🏓'}
+          <div class="sport-icon-wrap" aria-hidden="true">
+            <Icon
+              name={sessionStore.session.sport === 'badminton' ? 'shuttlecock' : 'pickleball'}
+              size={20}
+            />
           </div>
           <div class="session-meta">
             <span class="app-title">Queue Master</span>
-            <div class="format-pill-row">
-              <span class="format-pill">
-                {sessionStore.session.sport === 'badminton' ? 'Badminton' : 'Pickleball'}
-              </span>
-              <span class="format-pill">
-                {sessionStore.session.format === 'doubles' ? '2v2 Doubles' : '1v1 Singles'}
-              </span>
-            </div>
+            <span class="meta-dot" aria-hidden="true">·</span>
+            <span class="session-format">
+              {sessionStore.session.sport === 'badminton' ? 'Badminton' : 'Pickleball'}
+              {sessionStore.session.format === 'doubles' ? '2v2' : '1v1'}
+            </span>
           </div>
         </div>
 
         <div class="topbar-actions">
           <button
             class="top-icon-btn"
-            onclick={() => isSettingsOpen = true}
+            onclick={() => uiStore.toggleTheme()}
             type="button"
-            title="Settings & Weights"
-            aria-label="Settings"
+            aria-label={uiStore.theme === 'dark' ? 'Switch to Gym light mode' : 'Switch to Dark mode'}
+            title={uiStore.theme === 'dark' ? 'Gym Mode (Light)' : 'Dark Mode'}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
+            <Icon name={uiStore.theme === 'dark' ? 'sun' : 'moon'} size={20} />
           </button>
 
           <button
-            class="top-end-btn"
-            onclick={() => isEndSessionOpen = true}
+            class="top-icon-btn"
+            onclick={() => (isSettingsOpen = true)}
             type="button"
-            title="End Session"
+            aria-label="Session settings"
+            title="Settings & Weights"
           >
-            End
+            <Icon name="settings" size={20} />
           </button>
         </div>
       </div>
@@ -69,39 +68,34 @@
 
     <!-- Main Tab View Content -->
     <main class="app-container">
-      {#if activeTab === 'courts'}
-        <CourtsView
-          onOpenQueueTab={() => activeTab = 'queue'}
-          onOpenHistoryTab={() => activeTab = 'history'}
-        />
-      {:else if activeTab === 'queue'}
-        <QueueView />
+      {#if activeTab === 'live'}
+        <LiveView onOpenPlayersTab={() => (activeTab = 'players')} />
       {:else if activeTab === 'players'}
         <PlayersView />
-      {:else if activeTab === 'history'}
-        <HistoryView />
-      {:else if activeTab === 'costs'}
-        <CostsView />
+      {:else if activeTab === 'session'}
+        <SessionView onOpenEndSession={() => (isEndSessionOpen = true)} />
       {/if}
     </main>
 
-    <!-- Fixed Bottom Tab Bar -->
+    <!-- Fixed 3-Tab Bottom Navigation -->
     <BottomNav
       {activeTab}
-      onSelect={(tab) => activeTab = tab}
+      onSelect={(tab) => (activeTab = tab)}
     />
 
     <!-- Settings & End Session Sheets -->
     <SettingsModal
       isOpen={isSettingsOpen}
-      onClose={() => isSettingsOpen = false}
+      onClose={() => (isSettingsOpen = false)}
     />
 
     <EndSessionModal
       isOpen={isEndSessionOpen}
-      onClose={() => isEndSessionOpen = false}
+      onClose={() => (isEndSessionOpen = false)}
     />
   {/if}
+
+  <UndoToast />
 </div>
 
 <style>
@@ -117,88 +111,87 @@
     position: sticky;
     top: 0;
     z-index: 90;
-    background: rgba(9, 13, 22, 0.88);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: var(--bg-header);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-subtle);
   }
 
   .topbar-inner {
     max-width: 680px;
+    min-height: 52px;
     margin: 0 auto;
-    padding: 10px 16px;
+    padding: var(--sp-1) var(--sp-4);
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--sp-2);
   }
 
   .session-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-2);
+    min-width: 0;
   }
 
-  .sport-icon-bubble {
-    font-size: 22px;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: var(--radius-md);
-    padding: 4px 8px;
+  .sport-icon-wrap {
+    width: 34px;
+    height: 34px;
+    background: var(--c-action-tint);
+    color: var(--c-action);
+    border: 1px solid var(--c-action-border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   .session-meta {
     display: flex;
-    flex-direction: column;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-width: 0;
   }
 
   .app-title {
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: 800;
-    color: var(--text-primary);
+    color: var(--text-1);
     font-family: var(--font-heading);
     letter-spacing: -0.01em;
   }
 
-  .format-pill-row {
-    display: flex;
-    gap: 4px;
+  .meta-dot {
+    color: var(--text-3);
+    font-weight: 700;
   }
 
-  .format-pill {
-    font-size: 10px;
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.06);
-    padding: 1px 6px;
-    border-radius: var(--radius-full);
+  .session-format {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-2);
   }
 
   .topbar-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-1);
+    flex-shrink: 0;
   }
 
   .top-icon-btn {
-    padding: 8px;
-    color: var(--text-secondary);
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
+    color: var(--text-2);
     border-radius: var(--radius-sm);
   }
 
   .top-icon-btn:hover {
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .top-end-btn {
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 700;
-    color: #fb7185;
-    background: rgba(244, 63, 94, 0.12);
-    border: 1px solid rgba(244, 63, 94, 0.25);
-    border-radius: var(--radius-sm);
-  }
-
-  .top-end-btn:hover {
-    background: rgba(244, 63, 94, 0.2);
+    color: var(--text-1);
+    background: var(--bg-subtle-hover);
   }
 </style>

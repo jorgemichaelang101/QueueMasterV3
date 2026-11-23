@@ -8,28 +8,27 @@
   }
 
   let { skill, compact = false }: Props = $props();
-
   let info = $derived(SKILL_TIERS[skill] || SKILL_TIERS[1]);
 </script>
 
-<span
-  class="skill-badge"
-  style="color: {info.color}; background-color: {info.bgTint}; border: 1px solid {info.color}40;"
->
+<span class="skill-chip" title={info.label}>
   {compact ? info.shortLabel : info.label}
 </span>
 
 <style>
-  .skill-badge {
+  .skill-chip {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    padding: 2px 7px;
-    border-radius: 9999px;
-    letter-spacing: 0.02em;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-2);
     white-space: nowrap;
-    text-transform: uppercase;
+    flex-shrink: 0;
+    line-height: 1.3;
   }
 </style>

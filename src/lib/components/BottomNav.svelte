@@ -1,118 +1,63 @@
 <script lang="ts">
   import { sessionStore } from '../state/session.svelte';
+  import Icon from './Icon.svelte';
+
+  export type MainTab = 'live' | 'players' | 'session';
 
   interface Props {
-    activeTab: 'courts' | 'queue' | 'players' | 'history' | 'costs';
-    onSelect: (tab: 'courts' | 'queue' | 'players' | 'history' | 'costs') => void;
+    activeTab: MainTab;
+    onSelect: (tab: MainTab) => void;
   }
 
   let { activeTab, onSelect }: Props = $props();
 
-  let activeCourtCount = $derived(
-    sessionStore.session?.courts.filter(c => c.status === 'in_use').length || 0
+  // Actionable badge only: number of courts in 'ready' state waiting to start
+  let readyCourtCount = $derived(
+    sessionStore.session?.courts.filter(c => c.status === 'ready').length || 0
   );
-
-  let historyCount = $derived(
-    sessionStore.session?.history.length || 0
-  );
-
-  let unpaidCount = $derived(() => {
-    if (!sessionStore.session) return 0;
-    return sessionStore.session.players.filter(p => !p.payment.paid).length;
-  });
 </script>
 
-<nav class="bottom-nav">
+<nav class="bottom-nav" aria-label="Main navigation">
   <div class="nav-inner">
     <button
-      class="nav-item {activeTab === 'courts' ? 'active' : ''}"
-      onclick={() => onSelect('courts')}
+      class="nav-item {activeTab === 'live' ? 'active' : ''}"
+      onclick={() => onSelect('live')}
       type="button"
+      aria-current={activeTab === 'live' ? 'page' : undefined}
     >
       <div class="icon-wrap">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="18" rx="2"/>
-          <line x1="2" y1="12" x2="22" y2="12"/>
-          <line x1="12" y1="3" x2="12" y2="21"/>
-        </svg>
-        {#if activeCourtCount > 0}
-          <span class="bubble bubble-emerald">{activeCourtCount}</span>
+        <Icon name="courts" size={22} />
+        {#if readyCourtCount > 0}
+          <span class="action-badge tabular-nums" title="{readyCourtCount} court ready to start">
+            {readyCourtCount}
+          </span>
         {/if}
       </div>
-      <span>Courts</span>
-    </button>
-
-    <button
-      class="nav-item {activeTab === 'queue' ? 'active' : ''}"
-      onclick={() => onSelect('queue')}
-      type="button"
-    >
-      <div class="icon-wrap">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m19 11-4-7"/>
-          <path d="m2 11 20 0"/>
-          <path d="m5 11 4-7"/>
-          <path d="m15 11 2 9"/>
-          <path d="m9 11-2 9"/>
-          <path d="M12 21a9 9 0 0 0 9-9"/>
-        </svg>
-        {#if sessionStore.session && sessionStore.session.nextUp.length > 0}
-          <span class="bubble bubble-violet">{sessionStore.session.nextUp.length}</span>
-        {/if}
-      </div>
-      <span>Queue</span>
+      <span>Live</span>
     </button>
 
     <button
       class="nav-item {activeTab === 'players' ? 'active' : ''}"
       onclick={() => onSelect('players')}
       type="button"
+      aria-current={activeTab === 'players' ? 'page' : undefined}
     >
       <div class="icon-wrap">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
+        <Icon name="users" size={22} />
       </div>
       <span>Players</span>
     </button>
 
     <button
-      class="nav-item {activeTab === 'history' ? 'active' : ''}"
-      onclick={() => onSelect('history')}
+      class="nav-item {activeTab === 'session' ? 'active' : ''}"
+      onclick={() => onSelect('session')}
       type="button"
+      aria-current={activeTab === 'session' ? 'page' : undefined}
     >
       <div class="icon-wrap">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-          <path d="M3 3v5h5"/>
-          <path d="M12 7v5l4 2"/>
-        </svg>
-        {#if historyCount > 0}
-          <span class="bubble bubble-cyan">{historyCount}</span>
-        {/if}
+        <Icon name="receipt" size={22} />
       </div>
-      <span>History</span>
-    </button>
-
-    <button
-      class="nav-item {activeTab === 'costs' ? 'active' : ''}"
-      onclick={() => onSelect('costs')}
-      type="button"
-    >
-      <div class="icon-wrap">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/>
-          <path d="M12 18V6"/>
-        </svg>
-        {#if unpaidCount() > 0}
-          <span class="bubble bubble-amber">{unpaidCount()}</span>
-        {/if}
-      </div>
-      <span>Costs</span>
+      <span>Session</span>
     </button>
   </div>
 </nav>
@@ -123,39 +68,40 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(15, 23, 42, 0.94);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg-nav);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border-subtle);
     z-index: 100;
-    padding-bottom: env(safe-area-inset-bottom, 8px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .nav-inner {
     max-width: 680px;
     margin: 0 auto;
-    display: flex;
-    justify-content: space-around;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     align-items: center;
-    padding: 8px 12px 6px;
+    padding: var(--sp-1) var(--sp-3);
   }
 
   .nav-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    color: var(--text-muted);
-    font-size: 11px;
-    font-weight: 600;
-    padding: 6px 10px;
+    justify-content: center;
+    gap: 2px;
+    color: var(--text-3);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    min-height: 56px;
+    padding: var(--sp-1) var(--sp-2);
     border-radius: var(--radius-md);
-    transition: all 0.15s ease;
     position: relative;
   }
 
   .nav-item.active {
-    color: var(--accent-cyan);
+    color: var(--c-action);
   }
 
   .icon-wrap {
@@ -165,35 +111,20 @@
     justify-content: center;
   }
 
-  .bubble {
+  .action-badge {
     position: absolute;
-    top: -5px;
-    right: -8px;
+    top: -4px;
+    right: -10px;
     min-width: 16px;
     height: 16px;
-    border-radius: 999px;
-    font-size: 9px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
     font-weight: 800;
-    color: #fff;
+    background: var(--c-ready);
+    color: #090d16;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0 4px;
-  }
-
-  .bubble-emerald {
-    background-color: var(--accent-emerald);
-  }
-
-  .bubble-violet {
-    background-color: var(--accent-violet);
-  }
-
-  .bubble-amber {
-    background-color: var(--accent-amber);
-  }
-
-  .bubble-cyan {
-    background-color: #0284c7;
   }
 </style>

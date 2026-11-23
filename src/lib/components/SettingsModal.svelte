@@ -1,6 +1,8 @@
 <script lang="ts">
   import { sessionStore } from '../state/session.svelte';
+  import { uiStore } from '../state/ui.svelte';
   import { DEFAULT_WAND_WEIGHTS } from '../constants';
+  import Icon from './Icon.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -41,20 +43,64 @@
     repWeight = DEFAULT_WAND_WEIGHTS.repetition;
     skillWeight = DEFAULT_WAND_WEIGHTS.skillBalance;
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (isOpen && e.key === 'Escape') {
+      onClose();
+    }
+  }
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if isOpen}
-  <div class="modal-backdrop" onclick={onClose} role="dialog" aria-modal="true" tabindex="-1">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="modal-sheet" onclick={(e) => e.stopPropagation()} role="document">
+  <div
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Session Settings"
+    tabindex="-1"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') onClose();
+    }}
+  >
+    <div class="modal-sheet">
       <div class="sheet-handle"></div>
 
       <div class="sheet-header">
         <div>
           <h3>Session Settings</h3>
-          <p class="subtext">Configure currency and tune Magic Wand matchmaking weights</p>
+          <p class="subtext">Display mode, currency, and matchmaking weights</p>
         </div>
-        <button class="btn-ghost" onclick={onClose} type="button" aria-label="Close">✕</button>
+        <button class="btn-ghost icon-close" onclick={onClose} type="button" aria-label="Close">
+          <Icon name="x" size={20} />
+        </button>
+      </div>
+
+      <!-- Display Theme Mode -->
+      <div class="setting-group">
+        <span class="group-label">Display Theme</span>
+        <div class="theme-segmented">
+          <button
+            class="theme-opt {uiStore.theme === 'dark' ? 'active' : ''}"
+            onclick={() => uiStore.setTheme('dark')}
+            type="button"
+          >
+            <Icon name="moon" size={16} />
+            <span>Dark Mode</span>
+          </button>
+          <button
+            class="theme-opt {uiStore.theme === 'light' ? 'active' : ''}"
+            onclick={() => uiStore.setTheme('light')}
+            type="button"
+          >
+            <Icon name="sun" size={16} />
+            <span>Gym Mode (Light)</span>
+          </button>
+        </div>
       </div>
 
       <!-- Currency selection -->
@@ -73,7 +119,7 @@
             {#each ['₱', '$', '€', '¥', '£'] as sym}
               <button
                 class="preset-chip {currency === sym ? 'active' : ''}"
-                onclick={() => currency = sym}
+                onclick={() => (currency = sym)}
                 type="button"
               >
                 {sym}
@@ -89,47 +135,44 @@
           <span class="group-label">Magic Wand Base Weights</span>
           <button class="btn-ghost reset-btn" onclick={resetWeights} type="button">Reset Defaults</button>
         </div>
-        <p class="slider-hint">Weights are automatically shuffled ±40% on every wand tap for variety.</p>
+        <p class="slider-hint">Weights shuffle ±40% on each roll for match variety.</p>
 
-        <!-- Slider 1: Waiting Time -->
         <div class="slider-item">
-          <div class="slider-header">
-            <span>⏳ Waiting Time</span>
+          <div class="slider-header tabular-nums">
+            <label for="w-wait">Waiting Time Priority</label>
             <span class="slider-val">{waitWeight}</span>
           </div>
-          <input type="range" min="5" max="80" step="5" bind:value={waitWeight} />
+          <input id="w-wait" type="range" min="5" max="80" step="5" bind:value={waitWeight} />
         </div>
 
-        <!-- Slider 2: Games Played -->
         <div class="slider-item">
-          <div class="slider-header">
-            <span>🎮 Games Played Priority (Fewer Games First)</span>
+          <div class="slider-header tabular-nums">
+            <label for="w-games">Fewer Games Priority</label>
             <span class="slider-val">{gamesWeight}</span>
           </div>
-          <input type="range" min="5" max="80" step="5" bind:value={gamesWeight} />
+          <input id="w-games" type="range" min="5" max="80" step="5" bind:value={gamesWeight} />
         </div>
 
-        <!-- Slider 3: Repetition Avoidance -->
         <div class="slider-item">
-          <div class="slider-header">
-            <span>🔄 Partner Repetition Avoidance</span>
+          <div class="slider-header tabular-nums">
+            <label for="w-rep">Partner Freshness</label>
             <span class="slider-val">{repWeight}</span>
           </div>
-          <input type="range" min="5" max="80" step="5" bind:value={repWeight} />
+          <input id="w-rep" type="range" min="5" max="80" step="5" bind:value={repWeight} />
         </div>
 
-        <!-- Slider 4: Skill Balance -->
         <div class="slider-item">
-          <div class="slider-header">
-            <span>⚖️ Team Skill Balance</span>
+          <div class="slider-header tabular-nums">
+            <label for="w-skill">Team Skill Balance</label>
             <span class="slider-val">{skillWeight}</span>
           </div>
-          <input type="range" min="5" max="80" step="5" bind:value={skillWeight} />
+          <input id="w-skill" type="range" min="5" max="80" step="5" bind:value={skillWeight} />
         </div>
       </div>
 
-      <div class="modal-actions">
+      <div class="sheet-sticky-footer">
         <button class="btn-primary save-btn" onclick={saveSettings} type="button">
+          <Icon name="check" size={18} />
           Save Settings
         </button>
       </div>
@@ -142,30 +185,64 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 20px;
+    margin-bottom: var(--sp-3);
+  }
+
+  .sheet-header h3 {
+    font-size: var(--fs-lg);
   }
 
   .subtext {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    margin-top: 2px;
+  }
+
+  .icon-close {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
   }
 
   .setting-group {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
   }
 
   .group-label {
-    display: block;
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 10px;
+    color: var(--text-2);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
+  }
+
+  .theme-segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-2);
+  }
+
+  .theme-opt {
+    min-height: var(--tap-min);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    color: var(--text-2);
+  }
+
+  .theme-opt.active {
+    background: var(--c-action);
+    border-color: var(--c-action);
+    color: var(--c-action-text);
   }
 
   .group-title-row {
@@ -175,86 +252,85 @@
   }
 
   .reset-btn {
-    font-size: 11px;
-    color: var(--accent-cyan);
-    padding: 2px 6px;
+    min-height: 32px;
+    font-size: var(--fs-xs);
+    color: var(--c-action);
+    padding: 2px var(--sp-2);
   }
 
   .slider-hint {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 14px;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .currency-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
   }
 
   .currency-input {
     width: 64px;
     text-align: center;
-    font-size: 18px;
+    font-size: var(--fs-lg);
     font-weight: 700;
   }
 
   .currency-presets {
     display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
+    gap: var(--sp-1);
+    flex: 1;
   }
 
   .preset-chip {
-    padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.06);
+    flex: 1;
+    min-height: var(--tap-min);
+    padding: 0;
+    background: var(--bg-input);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 600;
+    color: var(--text-2);
+    font-size: var(--fs-md);
+    font-weight: 700;
   }
 
   .preset-chip.active {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: var(--accent-cyan);
-    color: var(--accent-cyan);
+    background: var(--c-action);
+    border-color: var(--c-action);
+    color: var(--c-action-text);
   }
 
   .slider-item {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
+    gap: 4px;
   }
 
   .slider-header {
     display: flex;
     justify-content: space-between;
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-1);
   }
 
   .slider-val {
-    color: var(--accent-cyan);
+    color: var(--c-action);
     font-weight: 700;
   }
 
   input[type='range'] {
     width: 100%;
-    accent-color: var(--accent-violet);
+    accent-color: var(--c-action);
     cursor: pointer;
     background: transparent;
-  }
-
-  .modal-actions {
-    margin-top: 10px;
+    min-height: 32px;
+    padding: 0;
+    border: none;
   }
 
   .save-btn {
     width: 100%;
-    padding: 14px;
-    font-size: 15px;
   }
 </style>

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { sessionStore } from '../state/session.svelte';
+  import { uiStore } from '../state/ui.svelte';
   import type { Sport, Format } from '../types';
+  import Icon from '../components/Icon.svelte';
 
   let selectedSport = $state<Sport>('badminton');
   let selectedFormat = $state<Format>('doubles');
@@ -13,61 +15,77 @@
 </script>
 
 <div class="setup-view">
-  <div class="setup-hero">
-    <div class="logo-badge">🏸</div>
-    <h1>Queue Master v3</h1>
-    <p class="hero-subtitle">Offline-First Badminton & Pickleball Session Manager</p>
+  <div class="setup-top-row">
+    <div class="brand-group">
+      <div class="logo-badge">
+        <Icon name={selectedSport === 'badminton' ? 'shuttlecock' : 'pickleball'} size={28} />
+      </div>
+      <div>
+        <h1>Queue Master</h1>
+        <p class="hero-subtitle">Courtside Queue & Session Manager</p>
+      </div>
+    </div>
+
+    <button
+      class="btn-secondary theme-btn"
+      onclick={() => uiStore.toggleTheme()}
+      type="button"
+      aria-label={uiStore.theme === 'dark' ? 'Switch to Gym light mode' : 'Switch to Dark mode'}
+    >
+      <Icon name={uiStore.theme === 'dark' ? 'sun' : 'moon'} size={18} />
+      <span>{uiStore.theme === 'dark' ? 'Gym Mode' : 'Dark'}</span>
+    </button>
   </div>
 
-  <div class="glass-card setup-card">
+  <div class="surface-card setup-card">
     <!-- Sport Selection -->
     <div class="section-block">
-      <span class="block-label">Select Sport</span>
+      <span class="block-label">Sport</span>
       <div class="pill-grid">
         <button
           class="choice-card {selectedSport === 'badminton' ? 'active' : ''}"
-          onclick={() => selectedSport = 'badminton'}
+          onclick={() => (selectedSport = 'badminton')}
           type="button"
         >
-          <span class="choice-icon">🏸</span>
+          <span class="choice-icon"><Icon name="shuttlecock" size={26} /></span>
           <span class="choice-title">Badminton</span>
-          <span class="choice-desc">Target 21 pts</span>
+          <span class="choice-desc">21 pts · Shuttles</span>
         </button>
 
         <button
           class="choice-card {selectedSport === 'pickleball' ? 'active' : ''}"
-          onclick={() => selectedSport = 'pickleball'}
+          onclick={() => (selectedSport = 'pickleball')}
           type="button"
         >
-          <span class="choice-icon">🏓</span>
+          <span class="choice-icon"><Icon name="pickleball" size={26} /></span>
           <span class="choice-title">Pickleball</span>
-          <span class="choice-desc">Target 11 pts</span>
+          <span class="choice-desc">11 pts · Balls</span>
         </button>
       </div>
     </div>
 
-    <!-- Match Format Selection -->
+    <!-- Match Format Selection (Segmented) -->
     <div class="section-block">
-      <span class="block-label">Match Format</span>
+      <span class="block-label">Format</span>
       <div class="pill-grid">
         <button
           class="choice-card {selectedFormat === 'doubles' ? 'active' : ''}"
-          onclick={() => selectedFormat = 'doubles'}
+          onclick={() => (selectedFormat = 'doubles')}
           type="button"
         >
-          <span class="choice-icon">👥</span>
-          <span class="choice-title">Doubles</span>
-          <span class="choice-desc">2 vs 2 (4 players)</span>
+          <span class="choice-icon"><Icon name="users" size={22} /></span>
+          <span class="choice-title">Doubles (2v2)</span>
+          <span class="choice-desc">4 players per court</span>
         </button>
 
         <button
           class="choice-card {selectedFormat === 'singles' ? 'active' : ''}"
-          onclick={() => selectedFormat = 'singles'}
+          onclick={() => (selectedFormat = 'singles')}
           type="button"
         >
-          <span class="choice-icon">👤</span>
-          <span class="choice-title">Singles</span>
-          <span class="choice-desc">1 vs 1 (2 players)</span>
+          <span class="choice-icon"><Icon name="user" size={22} /></span>
+          <span class="choice-title">Singles (1v1)</span>
+          <span class="choice-desc">2 players per court</span>
         </button>
       </div>
     </div>
@@ -75,14 +93,14 @@
     <!-- Initial Court Count -->
     <div class="section-block">
       <div class="label-with-hint">
-        <span class="block-label">Initial Court Count</span>
-        <span class="hint-text">(Can be dynamically added/removed anytime)</span>
+        <span class="block-label">Courts</span>
+        <span class="hint-text">Add or remove anytime</span>
       </div>
-      <div class="stepper-row">
+      <div class="stepper-row tabular-nums">
         {#each [1, 2, 3, 4, 5, 6] as num}
           <button
             class="court-chip {courtCount === num ? 'active' : ''}"
-            onclick={() => courtCount = num}
+            onclick={() => (courtCount = num)}
             type="button"
           >
             {num}
@@ -93,12 +111,12 @@
 
     <!-- Currency Selection -->
     <div class="section-block">
-      <span class="block-label">Currency Symbol</span>
+      <span class="block-label">Currency</span>
       <div class="currency-presets">
         {#each ['₱', '$', '€', '¥', '£'] as sym}
           <button
             class="sym-chip {currency === sym ? 'active' : ''}"
-            onclick={() => currency = sym}
+            onclick={() => (currency = sym)}
             type="button"
           >
             {sym}
@@ -108,7 +126,8 @@
     </div>
 
     <button class="btn-primary start-btn" onclick={handleStart} type="button">
-      🚀 Start Session
+      <Icon name="play" size={18} />
+      Start Session
     </button>
   </div>
 </div>
@@ -117,153 +136,155 @@
   .setup-view {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding-top: 24px;
+    gap: var(--sp-4);
+    padding-top: var(--sp-3);
   }
 
-  .setup-hero {
-    text-align: center;
-    margin-bottom: 24px;
+  .setup-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
   }
 
   .logo-badge {
-    font-size: 42px;
-    margin-bottom: 8px;
-    display: inline-block;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--c-action-tint);
+    border: 1px solid var(--c-action-border);
+    color: var(--c-action);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .brand-group h1 {
+    font-size: var(--fs-xl);
   }
 
   .hero-subtitle {
-    color: var(--text-secondary);
-    font-size: 14px;
-    margin-top: 4px;
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+  }
+
+  .theme-btn {
+    font-size: var(--fs-xs);
+    padding: var(--sp-2) var(--sp-3);
   }
 
   .setup-card {
-    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 24px;
+    gap: var(--sp-4);
   }
 
   .section-block {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
   }
 
   .block-label {
-    font-size: 13px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-2);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
   }
 
   .label-with-hint {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    justify-content: space-between;
+    align-items: baseline;
   }
 
   .hint-text {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .pill-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: var(--sp-2);
   }
 
   .choice-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    padding: 14px;
+    padding: var(--sp-3);
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    transition: all 0.18s ease;
-  }
-
-  .choice-card:hover {
-    border-color: rgba(255, 255, 255, 0.18);
   }
 
   .choice-card.active {
-    border-color: var(--accent-cyan);
-    background: rgba(56, 189, 248, 0.12);
-    box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+    border-color: var(--c-action);
+    background: var(--c-action-tint);
   }
 
   .choice-icon {
-    font-size: 26px;
+    color: var(--text-2);
     margin-bottom: 2px;
   }
 
+  .choice-card.active .choice-icon {
+    color: var(--c-action);
+  }
+
   .choice-title {
-    font-size: 14px;
+    font-size: var(--fs-md);
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-1);
   }
 
   .choice-desc {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
-  .stepper-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .court-chip {
-    flex: 1;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-secondary);
-  }
-
-  .court-chip.active {
-    border-color: var(--accent-cyan);
-    background: rgba(56, 189, 248, 0.2);
-    color: #fff;
+  .stepper-row,
+  .currency-presets {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--sp-2);
   }
 
   .currency-presets {
-    display: flex;
-    gap: 8px;
+    grid-template-columns: repeat(5, 1fr);
   }
 
+  .court-chip,
   .sym-chip {
-    flex: 1;
-    padding: 8px;
-    background: rgba(255, 255, 255, 0.05);
+    min-height: var(--tap-min);
+    padding: 0;
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    font-size: 15px;
+    border-radius: var(--radius-md);
+    font-size: var(--fs-md);
     font-weight: 700;
-    color: var(--text-secondary);
+    color: var(--text-2);
   }
 
+  .court-chip.active,
   .sym-chip.active {
-    border-color: var(--accent-cyan);
-    background: rgba(56, 189, 248, 0.2);
-    color: var(--accent-cyan);
+    border-color: var(--c-action);
+    background: var(--c-action);
+    color: var(--c-action-text);
   }
 
   .start-btn {
     width: 100%;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: 700;
-    margin-top: 10px;
+    margin-top: var(--sp-1);
   }
 </style>

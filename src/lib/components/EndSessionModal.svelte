@@ -1,6 +1,7 @@
 <script lang="ts">
   import { sessionStore } from '../state/session.svelte';
   import SkillBadge from './SkillBadge.svelte';
+  import Icon from './Icon.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -21,26 +22,47 @@
     sessionStore.endSession();
     onClose();
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (isOpen && e.key === 'Escape') {
+      onClose();
+    }
+  }
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if isOpen && sessionStore.session}
-  <div class="modal-backdrop" onclick={onClose} role="dialog" aria-modal="true" tabindex="-1">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="modal-sheet end-sheet" onclick={(e) => e.stopPropagation()} role="document">
+  <div
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Session Summary & Settlement"
+    tabindex="-1"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') onClose();
+    }}
+  >
+    <div class="modal-sheet end-sheet">
       <div class="sheet-handle"></div>
 
       <div class="sheet-header">
         <div>
-          <h3>Session Summary & Settlement</h3>
-          <p class="subtext">Review total stats and payment collection before ending the session</p>
+          <h3>Session Summary</h3>
+          <p class="subtext">Review stats and payments before closing the session</p>
         </div>
-        <button class="btn-ghost" onclick={onClose} type="button" aria-label="Close">✕</button>
+        <button class="btn-ghost icon-close" onclick={onClose} type="button" aria-label="Close">
+          <Icon name="x" size={20} />
+        </button>
       </div>
 
       <!-- Financial Recap -->
       {#if costSummary}
-        <div class="financial-card">
-          <div class="fin-header">Financial Settlement</div>
+        <div class="financial-card tabular-nums">
+          <div class="fin-header">Settlement</div>
           <div class="fin-grid">
             <div class="fin-stat">
               <span class="fin-label">Grand Total</span>
@@ -48,11 +70,11 @@
             </div>
             <div class="fin-stat">
               <span class="fin-label">Collected</span>
-              <span class="fin-value emerald">{currency}{costSummary.totalCollected.toFixed(2)}</span>
+              <span class="fin-value playing">{currency}{costSummary.totalCollected.toFixed(2)}</span>
             </div>
             <div class="fin-stat">
-              <span class="fin-label">Outstanding</span>
-              <span class="fin-value amber">{currency}{costSummary.totalOutstanding.toFixed(2)}</span>
+              <span class="fin-label">Unpaid</span>
+              <span class="fin-value ready">{currency}{costSummary.totalOutstanding.toFixed(2)}</span>
             </div>
             <div class="fin-stat">
               <span class="fin-label">Split / Player</span>
@@ -63,25 +85,25 @@
       {/if}
 
       <!-- Match Stats Recap -->
-      <div class="session-stats-grid">
+      <div class="session-stats-grid tabular-nums">
         <div class="stat-box">
           <span class="stat-num">{sessionStore.session.history.length}</span>
-          <span class="stat-name">Matches Played</span>
+          <span class="stat-name">Matches</span>
         </div>
         <div class="stat-box">
           <span class="stat-num">{sessionStore.session.players.length}</span>
-          <span class="stat-name">Total Players</span>
+          <span class="stat-name">Players</span>
         </div>
         <div class="stat-box">
           <span class="stat-num">{sessionStore.session.costs.totalCourtHours}h</span>
-          <span class="stat-name">Court Hours</span>
+          <span class="stat-name">Hours</span>
         </div>
       </div>
 
       <!-- Player Leaderboard Table -->
       <div class="leaderboard-section">
         <div class="section-title">Player Records & Payments</div>
-        <div class="player-recap-list">
+        <div class="player-recap-list tabular-nums">
           {#each sortedPlayers() as p}
             {@const playerBreakdown = costSummary?.breakdown.find(b => b.playerId === p.id)}
             <div class="player-recap-row">
@@ -90,7 +112,7 @@
                 <SkillBadge skill={p.skill} compact={true} />
               </div>
               <div class="player-recap-stats">
-                <span class="stat-pill">{p.gamesPlayed} games ({p.wins}W)</span>
+                <span class="stat-pill">{p.gamesPlayed}G · {p.wins}W</span>
                 {#if playerBreakdown}
                   <span class="pay-pill {playerBreakdown.paid ? 'paid' : 'unpaid'}">
                     {playerBreakdown.paid ? 'PAID' : 'UNPAID'} {currency}{playerBreakdown.amountDue.toFixed(2)}
@@ -102,10 +124,11 @@
         </div>
       </div>
 
-      <div class="danger-zone">
-        <p class="warning-text">Ending the session clears all active matches, queue, and player records for a fresh session.</p>
+      <div class="sheet-sticky-footer">
+        <p class="warning-text">Ending the session clears active matches, queue, and player records.</p>
         <button class="btn-danger finish-btn" onclick={confirmEndSession} type="button">
-          🛑 End Session & Clear Data
+          <Icon name="trash" size={18} />
+          End Session & Clear Data
         </button>
       </div>
     </div>
@@ -113,43 +136,50 @@
 {/if}
 
 <style>
-  .end-sheet {
-    max-height: 90vh;
-  }
-
   .sheet-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 16px;
+    margin-bottom: var(--sp-3);
+  }
+
+  .sheet-header h3 {
+    font-size: var(--fs-lg);
   }
 
   .subtext {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    margin-top: 2px;
+  }
+
+  .icon-close {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
   }
 
   .financial-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 16px;
-    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
   }
 
   .fin-header {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--text-secondary);
+    color: var(--text-2);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin-bottom: 12px;
+    margin-bottom: var(--sp-2);
   }
 
   .fin-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: var(--sp-3);
   }
 
   .fin-stat {
@@ -159,140 +189,134 @@
   }
 
   .fin-label {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .fin-value {
-    font-size: 18px;
+    font-size: var(--fs-lg);
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-1);
   }
 
-  .fin-value.emerald {
-    color: var(--accent-emerald);
+  .fin-value.playing {
+    color: var(--c-playing);
   }
 
-  .fin-value.amber {
-    color: var(--accent-amber);
+  .fin-value.ready {
+    color: var(--c-ready);
   }
 
   .session-stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
   }
 
   .stat-box {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    padding: 12px;
+    padding: var(--sp-2) var(--sp-3);
     text-align: center;
     display: flex;
     flex-direction: column;
   }
 
   .stat-num {
-    font-size: 22px;
+    font-size: var(--fs-xl);
     font-weight: 800;
-    color: var(--accent-cyan);
+    color: var(--text-1);
+    font-family: var(--font-heading);
   }
 
   .stat-name {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  .leaderboard-section {
-    margin-bottom: 20px;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .section-title {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--text-secondary);
+    color: var(--text-2);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-2);
   }
 
   .player-recap-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    max-height: 220px;
+    gap: var(--sp-1);
+    max-height: 200px;
     overflow-y: auto;
-    padding-right: 4px;
   }
 
   .player-recap-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: var(--sp-2) var(--sp-3);
+    gap: var(--sp-2);
   }
 
   .player-recap-info {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
+    min-width: 0;
   }
 
   .p-name {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .player-recap-stats {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
+    flex-shrink: 0;
   }
 
   .stat-pill {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .pay-pill {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    padding: 2px 7px;
+    padding: 2px var(--sp-2);
     border-radius: var(--radius-full);
   }
 
   .pay-pill.paid {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--accent-emerald);
+    background: var(--c-playing-tint);
+    color: var(--c-playing);
   }
 
   .pay-pill.unpaid {
-    background: rgba(244, 63, 94, 0.15);
-    color: #fb7185;
-  }
-
-  .danger-zone {
-    border-top: 1px solid rgba(244, 63, 94, 0.2);
-    padding-top: 14px;
+    background: var(--c-danger-tint);
+    color: var(--c-danger-text);
   }
 
   .warning-text {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 10px;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+    margin-bottom: var(--sp-2);
     text-align: center;
   }
 
   .finish-btn {
     width: 100%;
-    padding: 13px;
-    font-size: 14px;
-    font-weight: 700;
   }
 </style>

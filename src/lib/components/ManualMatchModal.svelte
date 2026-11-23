@@ -2,6 +2,7 @@
   import { sessionStore } from '../state/session.svelte';
   import type { Player, Match } from '../types';
   import SkillBadge from './SkillBadge.svelte';
+  import Icon from './Icon.svelte';
 
   interface Props {
     isOpen: boolean;
@@ -18,7 +19,6 @@
   let format = $derived(sessionStore.session?.format || 'doubles');
   let requiredPerTeam = $derived(format === 'doubles' ? 2 : 1);
 
-  // Synchronize when opening or editing
   $effect(() => {
     if (isOpen) {
       if (editingMatch) {
@@ -36,17 +36,13 @@
     return sessionStore.session?.players.find(p => p.id === id);
   }
 
-  // Selected player IDs in this match builder
   let selectedPlayerIds = $derived(new Set([...teamA, ...teamB]));
 
-  // Available players who can be assigned:
-  // Active players not currently on court, and not in other Next Up matches (except the one being edited)
   let availableCandidates = $derived(() => {
     if (!sessionStore.session) return [];
 
     const busyIds = new Set<string>();
 
-    // Players on courts
     for (const c of sessionStore.session.courts) {
       if (c.match) {
         c.match.teamA.forEach(id => busyIds.add(id));
@@ -54,7 +50,6 @@
       }
     }
 
-    // Players in other Next Up matches
     for (const m of sessionStore.session.nextUp) {
       if (editingMatch && m.id === editingMatch.id) continue;
       m.teamA.forEach(id => busyIds.add(id));
@@ -67,7 +62,6 @@
   });
 
   function handleCandidateClick(playerId: string) {
-    // If already in match, remove from team
     if (teamA.includes(playerId)) {
       teamA = teamA.filter(id => id !== playerId);
       return;
@@ -77,7 +71,6 @@
       return;
     }
 
-    // Assign to activeTargetSlot or next available slot
     if (activeTargetSlot) {
       if (activeTargetSlot.team === 'A') {
         const nextA = [...teamA];
@@ -92,7 +85,6 @@
       return;
     }
 
-    // Fallback: fill first open slot
     if (teamA.length < requiredPerTeam) {
       teamA = [...teamA, playerId];
     } else if (teamB.length < requiredPerTeam) {
@@ -143,29 +135,49 @@
     }, 0);
     return (sum / playerIds.length).toFixed(1);
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (isOpen && e.key === 'Escape') {
+      onClose();
+    }
+  }
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 {#if isOpen}
-  <div class="modal-backdrop" onclick={onClose} role="dialog" aria-modal="true" tabindex="-1">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="modal-sheet manual-sheet" onclick={(e) => e.stopPropagation()} role="document">
+  <div
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label={editingMatch ? 'Edit Queued Match' : 'Manual Match Builder'}
+    tabindex="-1"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') onClose();
+    }}
+  >
+    <div class="modal-sheet manual-sheet">
       <div class="sheet-handle"></div>
 
       <div class="sheet-header">
         <div>
-          <h3>{editingMatch ? 'Edit Queued Match' : 'Manual Match Builder'}</h3>
-          <p class="subtext">Custom QM pairing · Tap players to build teams</p>
+          <h3>{editingMatch ? 'Edit Match' : 'Manual Match'}</h3>
+          <p class="subtext">Tap players below to fill Team A and Team B</p>
         </div>
-        <button class="btn-ghost" onclick={onClose} type="button" aria-label="Close">✕</button>
+        <button class="btn-ghost icon-close" onclick={onClose} type="button" aria-label="Close">
+          <Icon name="x" size={20} />
+        </button>
       </div>
 
       <!-- Teams Slots Board -->
-      <div class="match-board glass-card">
-        <!-- Team A Slots -->
-        <div class="board-team team-a">
+      <div class="match-board surface-card">
+        <div class="board-team">
           <div class="team-top">
             <span class="team-name">Team A</span>
-            <span class="team-avg">Avg: {getTeamAvg(teamA)}</span>
+            <span class="team-avg tabular-nums">Avg {getTeamAvg(teamA)}</span>
           </div>
 
           <div class="slots-container">
@@ -181,15 +193,16 @@
                 >
                   <span class="slot-pname">{player.name}</span>
                   <SkillBadge skill={player.skill} compact={true} />
-                  <span class="remove-x">✕</span>
+                  <span class="remove-x"><Icon name="x" size={14} /></span>
                 </button>
               {:else}
                 <button
                   class="slot-empty {activeTargetSlot?.team === 'A' && activeTargetSlot?.index === idx ? 'active-target' : ''}"
-                  onclick={() => activeTargetSlot = { team: 'A', index: idx }}
+                  onclick={() => (activeTargetSlot = { team: 'A', index: idx })}
                   type="button"
                 >
-                  + Slot {idx + 1}
+                  <Icon name="plus" size={14} />
+                  <span>Slot {idx + 1}</span>
                 </button>
               {/if}
             {/each}
@@ -198,11 +211,10 @@
 
         <div class="board-vs">VS</div>
 
-        <!-- Team B Slots -->
-        <div class="board-team team-b">
+        <div class="board-team">
           <div class="team-top">
             <span class="team-name">Team B</span>
-            <span class="team-avg">Avg: {getTeamAvg(teamB)}</span>
+            <span class="team-avg tabular-nums">Avg {getTeamAvg(teamB)}</span>
           </div>
 
           <div class="slots-container">
@@ -218,15 +230,16 @@
                 >
                   <span class="slot-pname">{player.name}</span>
                   <SkillBadge skill={player.skill} compact={true} />
-                  <span class="remove-x">✕</span>
+                  <span class="remove-x"><Icon name="x" size={14} /></span>
                 </button>
               {:else}
                 <button
                   class="slot-empty {activeTargetSlot?.team === 'B' && activeTargetSlot?.index === idx ? 'active-target' : ''}"
-                  onclick={() => activeTargetSlot = { team: 'B', index: idx }}
+                  onclick={() => (activeTargetSlot = { team: 'B', index: idx })}
                   type="button"
                 >
-                  + Slot {idx + 1}
+                  <Icon name="plus" size={14} />
+                  <span>Slot {idx + 1}</span>
                 </button>
               {/if}
             {/each}
@@ -237,8 +250,8 @@
       <!-- Available Candidate Players Picker -->
       <div class="candidate-section">
         <div class="cand-header">
-          <span>Tap Available Players to Assign:</span>
-          <span class="cand-count">{availableCandidates().length} in pool</span>
+          <span>Available Players</span>
+          <span class="cand-count tabular-nums">{availableCandidates().length} in pool</span>
         </div>
 
         <div class="candidates-grid">
@@ -251,26 +264,28 @@
             >
               <div class="cand-info">
                 <span class="cand-name">{player.name}</span>
-                <span class="cand-meta">{player.gamesPlayed}G</span>
+                <span class="cand-meta tabular-nums">{player.gamesPlayed}G</span>
               </div>
               <SkillBadge skill={player.skill} compact={true} />
-              {#if isSelected}
-                <span class="assigned-mark">✓ Assigned</span>
-              {/if}
             </button>
           {/each}
         </div>
       </div>
 
-      <!-- Action Button -->
-      <div class="modal-actions">
+      <div class="sheet-sticky-footer">
         <button
           class="btn-primary submit-match-btn"
           disabled={!isMatchValid}
           onclick={handleSubmit}
           type="button"
         >
-          {editingMatch ? '✓ Save Changes to Queue' : '+ Add Match to Queue'}
+          {#if editingMatch}
+            <Icon name="check" size={18} />
+            Save Match Changes
+          {:else}
+            <Icon name="plus" size={18} />
+            Add Match to Queue
+          {/if}
         </button>
       </div>
     </div>
@@ -278,45 +293,49 @@
 {/if}
 
 <style>
-  .manual-sheet {
-    max-height: 90vh;
-  }
-
   .sheet-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 14px;
+    margin-bottom: var(--sp-3);
+  }
+
+  .sheet-header h3 {
+    font-size: var(--fs-lg);
   }
 
   .subtext {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    margin-top: 2px;
+  }
+
+  .icon-close {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
   }
 
   .match-board {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: var(--sp-2);
     align-items: center;
-    padding: 14px;
-    margin-bottom: 16px;
-    background: rgba(18, 26, 47, 0.9);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
   }
 
   .board-vs {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 800;
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.06);
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
+    color: var(--text-3);
   }
 
   .board-team {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
+    min-width: 0;
   }
 
   .team-top {
@@ -326,150 +345,140 @@
   }
 
   .team-name {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--text-secondary);
+    color: var(--text-2);
   }
 
   .team-avg {
-    font-size: 10px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .slots-container {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-1);
   }
 
   .slot-empty {
-    border: 1px dashed var(--border-subtle);
-    background: rgba(255, 255, 255, 0.03);
-    color: var(--text-muted);
-    padding: 8px 10px;
+    min-height: var(--tap-min);
+    border: 1px dashed var(--border-strong);
+    background: var(--bg-subtle);
+    color: var(--text-3);
+    padding: var(--sp-2);
     border-radius: var(--radius-sm);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     width: 100%;
-    justify-content: center;
+    gap: 4px;
   }
 
   .slot-empty.active-target {
-    border-color: var(--accent-cyan);
-    color: var(--accent-cyan);
-    background: rgba(56, 189, 248, 0.1);
+    border-style: solid;
+    border-color: var(--c-action);
+    color: var(--c-action);
+    background: var(--c-action-tint);
   }
 
   .slot-filled {
+    min-height: var(--tap-min);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid var(--border-subtle);
-    padding: 6px 10px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-strong);
+    padding: var(--sp-1) var(--sp-2);
     border-radius: var(--radius-sm);
     width: 100%;
-    gap: 6px;
+    gap: var(--sp-1);
+    min-width: 0;
   }
 
   .slot-pname {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-1);
     flex: 1;
     text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .remove-x {
-    font-size: 10px;
-    color: #fb7185;
+    color: var(--c-danger);
+    display: inline-flex;
   }
 
   .candidate-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 20px;
+    gap: var(--sp-2);
   }
 
   .cand-header {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--text-secondary);
+    text-transform: uppercase;
+    color: var(--text-2);
   }
 
   .cand-count {
-    color: var(--text-muted);
+    color: var(--text-3);
   }
 
   .candidates-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    max-height: 240px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-2);
+    max-height: 220px;
     overflow-y: auto;
-    padding-right: 4px;
   }
 
   .candidate-btn {
+    min-height: var(--tap-min);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
-    padding: 8px 10px;
+    padding: var(--sp-2) var(--sp-3);
     border-radius: var(--radius-md);
     text-align: left;
-    transition: all 0.15s ease;
-  }
-
-  .candidate-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
+    gap: var(--sp-1);
+    min-width: 0;
   }
 
   .candidate-btn.selected {
-    border-color: var(--accent-cyan);
-    background: rgba(56, 189, 248, 0.15);
+    border-color: var(--c-action);
+    background: var(--c-action-tint);
   }
 
   .cand-info {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .cand-name {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .cand-meta {
-    font-size: 10px;
-    color: var(--text-muted);
-  }
-
-  .assigned-mark {
-    font-size: 9px;
-    color: var(--accent-cyan);
-    font-weight: 700;
-  }
-
-  .modal-actions {
-    margin-top: 10px;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .submit-match-btn {
     width: 100%;
-    padding: 13px;
-    font-size: 15px;
-    font-weight: 700;
-  }
-
-  .submit-match-btn:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
   }
 </style>

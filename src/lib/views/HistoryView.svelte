@@ -3,12 +3,12 @@
   import type { Match, Player } from '../types';
   import { formatElapsed } from '../engine/time';
   import SkillBadge from '../components/SkillBadge.svelte';
+  import Icon from '../components/Icon.svelte';
 
   function getPlayer(id: string): Player | undefined {
     return sessionStore.session?.players.find(p => p.id === id);
   }
 
-  // Reverse chronological order (most recent match first), keeping original 1-based match number
   let historyItems = $derived(() => {
     const list = sessionStore.session?.history || [];
     return list
@@ -55,50 +55,43 @@
 </script>
 
 <div class="history-view">
-  <div class="history-header">
-    <div>
-      <h2>Match History</h2>
-      <p class="history-sub">Completed games, scores, and durations for this session</p>
-    </div>
-  </div>
-
   <!-- Summary Stats Bar -->
-  <div class="history-stats-row">
-    <div class="stat-chip">
+  <div class="history-stats-row tabular-nums">
+    <div class="stat-chip surface-card">
       <span class="stat-count">{sessionStore.session?.history.length || 0}</span>
-      <span class="stat-label">Games Played</span>
+      <span class="stat-label">Completed Matches</span>
     </div>
-    <div class="stat-chip">
+    <div class="stat-chip surface-card">
       <span class="stat-count">{avgDurationFormatted()}</span>
-      <span class="stat-label">Avg Duration</span>
+      <span class="stat-label">Average Duration</span>
     </div>
   </div>
 
   {#if historyItems().length === 0}
-    <div class="empty-history glass-card">
-      <div class="empty-icon">📜</div>
+    <div class="empty-history surface-card">
+      <Icon name="history" size={32} />
       <h4>No completed games yet</h4>
-      <p>Once matches are finished on the Courts tab, their results, scores, and durations will appear here.</p>
+      <p>Finished matches on the Live tab will appear here with scores and durations.</p>
     </div>
   {:else}
     <div class="history-list">
       {#each historyItems() as { match, matchNumber } (match.id)}
         {@const hasScore = match.scoreA !== null && match.scoreA !== undefined && match.scoreB !== null && match.scoreB !== undefined}
-        <div class="history-card glass-card">
-          <!-- Match Meta Header -->
+        <div class="history-card surface-card">
           <div class="history-card-header">
             <div class="meta-left">
-              <span class="match-num-badge">Match #{matchNumber}</span>
+              <span class="match-num-badge tabular-nums">#{matchNumber}</span>
               <span class="court-tag">{getCourtLabel(match)}</span>
               {#if !match.winner}
                 <span class="casual-tag">Casual</span>
               {/if}
             </div>
 
-            <div class="meta-right">
+            <div class="meta-right tabular-nums">
               {#if match.startedAt && match.endedAt}
                 <span class="duration-tag" title="Match duration">
-                  ⏱ {formatElapsed(match.startedAt, match.endedAt)}
+                  <Icon name="clock" size={12} />
+                  {formatElapsed(match.startedAt, match.endedAt)}
                 </span>
               {/if}
               {#if match.endedAt}
@@ -107,14 +100,16 @@
             </div>
           </div>
 
-          <!-- Teams & Scores -->
           <div class="history-teams-grid">
             <!-- Team A -->
             <div class="team-box {match.winner === 'A' ? 'winner-box' : ''}">
               <div class="team-box-header">
                 <span class="team-label">Team A</span>
                 {#if match.winner === 'A'}
-                  <span class="win-badge">🏆 WON</span>
+                  <span class="win-badge">
+                    <Icon name="trophy" size={12} />
+                    Won
+                  </span>
                 {/if}
               </div>
 
@@ -126,7 +121,7 @@
                       <span class="p-name">{p.name}</span>
                       <SkillBadge skill={p.skill} compact={true} />
                     {:else}
-                      <span class="p-name removed-player">Removed Player</span>
+                      <span class="p-name removed-player">Removed</span>
                     {/if}
                   </div>
                 {/each}
@@ -134,11 +129,11 @@
             </div>
 
             <!-- Center VS / Score -->
-            <div class="center-score-col">
+            <div class="center-score-col tabular-nums">
               {#if hasScore}
                 <div class="score-pill">
                   <span class="score-num {match.winner === 'A' ? 'score-win' : ''}">{match.scoreA}</span>
-                  <span class="score-sep">:</span>
+                  <span class="score-sep">–</span>
                   <span class="score-num {match.winner === 'B' ? 'score-win' : ''}">{match.scoreB}</span>
                 </div>
               {:else}
@@ -151,7 +146,10 @@
               <div class="team-box-header">
                 <span class="team-label">Team B</span>
                 {#if match.winner === 'B'}
-                  <span class="win-badge">🏆 WON</span>
+                  <span class="win-badge">
+                    <Icon name="trophy" size={12} />
+                    Won
+                  </span>
                 {/if}
               </div>
 
@@ -163,7 +161,7 @@
                       <span class="p-name">{p.name}</span>
                       <SkillBadge skill={p.skill} compact={true} />
                     {:else}
-                      <span class="p-name removed-player">Removed Player</span>
+                      <span class="p-name removed-player">Removed</span>
                     {/if}
                   </div>
                 {/each}
@@ -180,84 +178,67 @@
   .history-view {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-  }
-
-  .history-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .history-sub {
-    font-size: 13px;
-    color: var(--text-secondary);
+    gap: var(--sp-3);
   }
 
   .history-stats-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: var(--sp-2);
   }
 
   .stat-chip {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: 10px 12px;
+    padding: var(--sp-3);
     text-align: center;
     display: flex;
     flex-direction: column;
+    gap: 2px;
   }
 
   .stat-count {
-    font-size: 18px;
+    font-size: var(--fs-xl);
     font-weight: 800;
-    color: var(--accent-cyan);
+    color: var(--text-1);
+    font-family: var(--font-heading);
   }
 
   .stat-label {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .empty-history {
     text-align: center;
-    padding: 36px 20px;
-    color: var(--text-secondary);
+    padding: var(--sp-6) var(--sp-4);
+    color: var(--text-3);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-  }
-
-  .empty-icon {
-    font-size: 36px;
-    opacity: 0.7;
+    gap: var(--sp-2);
   }
 
   .empty-history h4 {
-    color: var(--text-primary);
-    font-size: 16px;
+    color: var(--text-1);
+    font-size: var(--fs-lg);
   }
 
   .empty-history p {
-    font-size: 13px;
-    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
     max-width: 320px;
   }
 
   .history-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--sp-3);
   }
 
   .history-card {
-    padding: 14px;
+    padding: var(--sp-3);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--sp-3);
   }
 
   .history-card-header {
@@ -265,121 +246,129 @@
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--sp-2);
   }
 
-  .meta-left, .meta-right {
+  .meta-left,
+  .meta-right {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2);
   }
 
   .match-num-badge {
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 800;
-    color: var(--accent-cyan);
+    color: var(--text-1);
   }
 
   .court-tag {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.06);
-    padding: 2px 8px;
+    color: var(--text-2);
+    background: var(--bg-subtle);
+    padding: 2px var(--sp-2);
     border-radius: var(--radius-full);
   }
 
   .casual-tag {
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.04);
-    padding: 2px 7px;
+    color: var(--text-3);
+    background: var(--bg-subtle);
+    padding: 2px var(--sp-2);
     border-radius: var(--radius-full);
   }
 
   .duration-tag {
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    color: var(--accent-emerald);
-    background: rgba(16, 185, 129, 0.12);
-    padding: 2px 7px;
+    color: var(--text-2);
+    background: var(--bg-subtle);
+    padding: 2px var(--sp-2);
     border-radius: var(--radius-sm);
   }
 
   .time-tag {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    color: var(--text-3);
   }
 
   .history-teams-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    gap: 8px;
+    gap: var(--sp-2);
     align-items: stretch;
   }
 
   .team-box {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    padding: 10px;
+    padding: var(--sp-2) var(--sp-3);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-1);
     min-width: 0;
   }
 
   .team-box.winner-box {
-    background: rgba(16, 185, 129, 0.08);
-    border-color: rgba(16, 185, 129, 0.35);
+    background: var(--c-playing-tint);
+    border-color: var(--c-playing-border);
   }
 
   .team-box-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-1);
   }
 
   .team-label {
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-3);
   }
 
   .win-badge {
-    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: var(--fs-xs);
     font-weight: 800;
-    color: var(--accent-emerald);
+    text-transform: uppercase;
+    color: var(--c-playing);
   }
 
   .team-players {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-1);
   }
 
   .player-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-1);
     min-width: 0;
   }
 
   .p-name {
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-1);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .removed-player {
-    color: var(--text-muted);
+    color: var(--text-3);
     font-style: italic;
   }
 
@@ -393,30 +382,27 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(15, 23, 42, 0.9);
+    background: var(--bg-input);
     border: 1px solid var(--border-subtle);
-    padding: 5px 8px;
+    padding: var(--sp-1) var(--sp-2);
     border-radius: var(--radius-sm);
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 800;
-    color: var(--text-secondary);
+    color: var(--text-2);
   }
 
   .score-win {
-    color: var(--accent-emerald);
+    color: var(--c-playing);
   }
 
   .score-sep {
-    color: var(--text-muted);
+    color: var(--text-3);
   }
 
   .vs-pill {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 800;
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.05);
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
+    color: var(--text-3);
+    padding: 0 2px;
   }
 </style>
-

@@ -1,14 +1,21 @@
 <script lang="ts">
   import { sessionStore } from '../state/session.svelte';
+  import { uiStore } from '../state/ui.svelte';
   import { SKILL_TIERS } from '../constants';
   import type { Player, SkillTier } from '../types';
   import { formatWaitMinutes } from '../engine/time';
   import SkillBadge from '../components/SkillBadge.svelte';
+  import Icon from '../components/Icon.svelte';
+  import ActionMenu, { type ActionMenuItem } from '../components/ActionMenu.svelte';
+  import ConfirmSheet from '../components/ConfirmSheet.svelte';
 
   let newName = $state('');
-  let newSkill = $state<SkillTier>(3); // Default High Beginner
+  let newSkill = $state<SkillTier>(3);
   let searchFilter = $state('');
   let addError = $state('');
+
+  let menuPlayer = $state<Player | null>(null);
+  let playerToRemove = $state<Player | null>(null);
 
   let now = $state(Date.now());
   $effect(() => {
@@ -44,19 +51,17 @@
       return { label: 'Sitting Out', type: 'resting' };
     }
 
-    // Check if on court
     for (const court of sessionStore.session.courts) {
       if (court.match) {
         if (court.match.teamA.includes(p.id) || court.match.teamB.includes(p.id)) {
           return {
-            label: `Court ${court.courtNumber} (${court.status === 'in_use' ? 'Playing' : 'Ready'})`,
+            label: `Court ${court.courtNumber} · ${court.status === 'in_use' ? 'Playing' : 'Ready'}`,
             type: court.status === 'in_use' ? 'playing' : 'ready',
           };
         }
       }
     }
 
-    // Check if in Next Up
     for (const match of sessionStore.session.nextUp) {
       if (match.teamA.includes(p.id) || match.teamB.includes(p.id)) {
         return { label: 'Next Up', type: 'nextup' };
@@ -73,49 +78,84 @@
     return list.filter(p => p.name.toLowerCase().includes(searchFilter.toLowerCase().trim()));
   });
 
-  function cycleSkill(player: Player) {
+  function getPlayerMenuItems(player: Player): ActionMenuItem[] {
     const nextSkill = ((player.skill % 6) + 1) as SkillTier;
-    sessionStore.updatePlayerSkill(player.id, nextSkill);
+    const nextSkillInfo = SKILL_TIERS[nextSkill];
+    return [
+      {
+        label: player.status === 'active' ? 'Sit Out Player' : 'Activate Player',
+        icon: player.status === 'active' ? 'pause-circle' : 'play-circle',
+        onSelect: () => {
+          sessionStore.toggleSitOut(player.id);
+          uiStore.showToast(
+            `${player.name} is now ${player.status === 'active' ? 'active' : 'sitting out'}`,
+            () => sessionStore.toggleSitOut(player.id)
+          );
+        },
+      },
+      {
+        label: `Change Skill to ${nextSkillInfo.label}`,
+        icon: 'sliders',
+        onSelect: () => {
+          sessionStore.updatePlayerSkill(player.id, nextSkill);
+        },
+      },
+      {
+        label: `Remove ${player.name}`,
+        icon: 'trash',
+        variant: 'danger',
+        onSelect: () => {
+          playerToRemove = player;
+        },
+      },
+    ];
   }
 </script>
 
 <div class="players-view">
-  <!-- Add Player Card -->
-  <div class="add-player-card glass-card">
-    <div class="card-title">Add Player to Session</div>
-
+  <!-- Sticky Add Player Card -->
+  <div class="add-player-card surface-card">
     <form class="add-form" onsubmit={(e) => { e.preventDefault(); handleAdd(); }}>
       <div class="name-input-row">
         <input
           class="name-input {addError ? 'input-error' : ''}"
           type="text"
-          placeholder="Enter player name..."
+          placeholder="Add player name..."
+          aria-label="New player name"
           bind:value={newName}
           oninput={() => { if (addError) addError = ''; }}
           maxlength="28"
         />
         <button class="btn-primary add-submit-btn" type="submit">
-          + Add
+          <Icon name="plus" size={18} />
+          Add
         </button>
       </div>
 
       {#if addError}
         <div class="add-error-msg" role="alert">
-          ⚠️ {addError}
+          <Icon name="alert-triangle" size={16} />
+          <span>{addError}</span>
         </div>
       {/if}
 
-      <!-- Skill Selection Pills -->
-      <div class="skill-picker-row">
-        <span class="picker-label">Skill Level:</span>
-        <div class="pills-scroll">
-          {#each [1, 2, 3, 4, 5, 6] as SkillTier}
-            {@const info = SKILL_TIERS[SkillTier as SkillTier]}
+      <!-- Skill Level Selection Grid (Novice -> Pro) -->
+      <div class="skill-picker-block">
+        <div class="skill-picker-header">
+          <span class="picker-label">Skill Level</span>
+          <span class="picker-selected">{SKILL_TIERS[newSkill].label}</span>
+        </div>
+        <div class="skill-segmented" role="radiogroup" aria-label="Skill level">
+          {#each [1, 2, 3, 4, 5, 6] as tier}
+            {@const s = tier as SkillTier}
+            {@const info = SKILL_TIERS[s]}
             <button
-              class="skill-pill {newSkill === SkillTier ? 'active' : ''}"
-              onclick={() => newSkill = SkillTier as SkillTier}
-              style="--pill-color: {info.color}; --pill-bg: {info.bgTint};"
+              role="radio"
+              aria-checked={newSkill === s}
+              class="skill-seg-btn {newSkill === s ? 'active' : ''}"
+              onclick={() => (newSkill = s)}
               type="button"
+              title={info.label}
             >
               {info.label}
             </button>
@@ -125,50 +165,46 @@
     </form>
   </div>
 
-  <!-- Players List Header & Filter -->
+  <!-- Players List Header & Search (Search appears when > 12 players) -->
   <div class="list-controls-bar">
     <div class="controls-left">
-      <h3>Players ({sessionStore.session?.players.length || 0})</h3>
-      <span class="active-sub">
+      <h2>Players ({sessionStore.session?.players.length || 0})</h2>
+      <span class="active-sub tabular-nums">
         {sessionStore.session?.players.filter(p => p.status === 'active').length || 0} active
       </span>
     </div>
 
-    {#if (sessionStore.session?.players.length || 0) > 4}
-      <input
-        class="search-input"
-        type="text"
-        placeholder="Search players..."
-        bind:value={searchFilter}
-      />
+    {#if (sessionStore.session?.players.length || 0) > 12}
+      <div class="search-wrap">
+        <Icon name="search" size={16} />
+        <input
+          class="search-input"
+          type="search"
+          placeholder="Filter..."
+          aria-label="Search players"
+          bind:value={searchFilter}
+        />
+      </div>
     {/if}
   </div>
 
-  <!-- Player List Cards -->
+  <!-- Player List Rows -->
   {#if filteredPlayers().length === 0}
-    <div class="empty-players glass-card">
-      <p>No players added yet. Add players using the form above to start matchmaking.</p>
+    <div class="empty-players surface-card">
+      <p>No players found. Add players above to start matchmaking.</p>
     </div>
   {:else}
     <div class="players-list">
       {#each filteredPlayers() as p (p.id)}
         {@const statusInfo = getPlayerStatusInfo(p)}
-        <div class="player-card glass-card {p.status === 'sitting_out' ? 'is-sitout' : ''}">
+        <div class="player-card surface-card {p.status === 'sitting_out' ? 'is-sitout' : ''}">
           <div class="player-card-main">
             <div class="p-title-line">
               <span class="p-name">{p.name}</span>
-              <!-- Tapping the badge cycles skill -->
-              <button
-                class="skill-badge-btn"
-                onclick={() => cycleSkill(p)}
-                type="button"
-                title="Tap to change skill tier"
-              >
-                <SkillBadge skill={p.skill} />
-              </button>
+              <SkillBadge skill={p.skill} />
             </div>
 
-            <div class="p-stats-line">
+            <div class="p-stats-line tabular-nums">
               <span class="status-tag {statusInfo.type}">
                 {statusInfo.label}
               </span>
@@ -178,23 +214,14 @@
             </div>
           </div>
 
-          <!-- Actions -->
           <div class="player-actions">
             <button
-              class="btn-ghost sit-toggle-btn {p.status === 'active' ? 'active-state' : 'sit-state'}"
-              onclick={() => sessionStore.toggleSitOut(p.id)}
+              class="icon-menu-btn"
+              onclick={() => (menuPlayer = p)}
               type="button"
+              aria-label="Options for {p.name}"
             >
-              {p.status === 'active' ? 'Sit Out' : 'Activate'}
-            </button>
-
-            <button
-              class="btn-ghost delete-p-btn"
-              onclick={() => sessionStore.removePlayer(p.id)}
-              type="button"
-              title="Remove player"
-            >
-              ✕
+              <Icon name="more-vertical" size={18} />
             </button>
           </div>
         </div>
@@ -203,244 +230,284 @@
   {/if}
 </div>
 
+<ActionMenu
+  isOpen={menuPlayer !== null}
+  title={menuPlayer?.name || ''}
+  subtitle={menuPlayer ? `${SKILL_TIERS[menuPlayer.skill].label} · ${menuPlayer.gamesPlayed}G ${menuPlayer.wins}W` : undefined}
+  items={menuPlayer ? getPlayerMenuItems(menuPlayer) : []}
+  onClose={() => (menuPlayer = null)}
+/>
+
+<ConfirmSheet
+  isOpen={playerToRemove !== null}
+  title={playerToRemove ? `Remove ${playerToRemove.name}?` : 'Remove Player?'}
+  description="Removing this player will also clear them from any queued matches."
+  confirmLabel="Remove Player"
+  variant="danger"
+  onConfirm={() => {
+    if (playerToRemove) {
+      sessionStore.removePlayer(playerToRemove.id);
+      playerToRemove = null;
+    }
+  }}
+  onClose={() => (playerToRemove = null)}
+/>
+
 <style>
   .players-view {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--sp-4);
   }
 
   .add-player-card {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-  }
-
-  .card-title {
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-secondary);
+    padding: var(--sp-3);
   }
 
   .add-form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--sp-3);
   }
 
   .name-input-row {
     display: flex;
-    gap: 8px;
+    gap: var(--sp-2);
   }
 
   .name-input {
     flex: 1;
     min-width: 0;
-    font-size: 15px;
   }
 
   .name-input.input-error {
-    border-color: var(--accent-rose);
-    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.15);
+    border-color: var(--c-danger);
   }
 
   .add-error-msg {
-    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-xs);
     font-weight: 600;
-    color: #fb7185;
-    background: rgba(244, 63, 94, 0.12);
-    border: 1px solid rgba(244, 63, 94, 0.25);
+    color: var(--c-danger-text);
+    background: var(--c-danger-tint);
+    border: 1px solid var(--c-danger-border);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: var(--sp-2) var(--sp-3);
   }
 
   .add-submit-btn {
-    padding: 10px 18px;
-    font-size: 14px;
-    white-space: nowrap;
+    flex-shrink: 0;
   }
 
-  .skill-picker-row {
+  .skill-picker-block {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-1);
+  }
+
+  .skill-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--fs-xs);
   }
 
   .picker-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-  }
-
-  .pills-scroll {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-
-  .skill-pill {
-    padding: 4px 10px;
-    border-radius: var(--radius-full);
-    font-size: 11px;
     font-weight: 700;
-    white-space: nowrap;
-    border: 1px solid var(--border-subtle);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-3);
   }
 
-  .skill-pill.active {
-    border-color: var(--pill-color);
-    background: var(--pill-bg);
-    color: var(--pill-color);
+  .picker-selected {
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .skill-segmented {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--sp-1);
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--sp-1);
+  }
+
+  .skill-seg-btn {
+    min-height: var(--tap-min);
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--text-2);
+  }
+
+  .skill-seg-btn.active {
+    background: var(--c-action);
+    color: var(--c-action-text);
   }
 
   .list-controls-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-2);
   }
 
   .controls-left {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: var(--sp-2);
+  }
+
+  .controls-left h2 {
+    font-size: var(--fs-xl);
   }
 
   .active-sub {
-    font-size: 12px;
-    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-3);
+  }
+
+  .search-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 0 var(--sp-2);
+    color: var(--text-3);
+    max-width: 180px;
   }
 
   .search-input {
-    padding: 6px 12px;
-    font-size: 13px;
-    max-width: 170px;
+    border: none;
+    background: transparent;
+    padding: var(--sp-1);
+    font-size: var(--fs-sm);
+    min-height: 38px;
+    width: 100%;
+  }
+
+  .search-input:focus {
+    box-shadow: none;
   }
 
   .players-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
   }
 
   .player-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 14px;
-    transition: all 0.15s ease;
+    padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+    gap: var(--sp-2);
   }
 
   .player-card.is-sitout {
-    opacity: 0.6;
-    background: rgba(15, 23, 42, 0.4);
+    opacity: 0.65;
   }
 
   .player-card-main {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-1);
+    min-width: 0;
+    flex: 1;
   }
 
   .p-title-line {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
+    min-width: 0;
   }
 
   .p-name {
-    font-size: 15px;
+    font-size: var(--fs-lg);
     font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .skill-badge-btn {
-    padding: 0;
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .p-stats-line {
     display: flex;
-    gap: 8px;
+    gap: var(--sp-2);
     align-items: center;
   }
 
   .status-tag {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 6px;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    padding: 2px var(--sp-2);
     border-radius: var(--radius-sm);
   }
 
   .status-tag.playing {
-    color: var(--accent-emerald);
-    background: rgba(16, 185, 129, 0.12);
+    color: var(--c-playing);
+    background: var(--c-playing-tint);
   }
 
   .status-tag.ready {
-    color: var(--accent-amber);
-    background: rgba(245, 158, 11, 0.12);
+    color: var(--c-ready);
+    background: var(--c-ready-tint);
   }
 
   .status-tag.nextup {
-    color: var(--accent-violet);
-    background: rgba(139, 92, 246, 0.12);
+    color: var(--c-wand-text);
+    background: var(--c-wand-tint);
   }
 
   .status-tag.waiting {
-    color: var(--accent-cyan);
-    background: rgba(56, 189, 248, 0.12);
+    color: var(--text-2);
+    background: var(--bg-subtle);
   }
 
   .status-tag.resting {
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-3);
+    background: var(--bg-subtle);
   }
 
   .record-tag {
-    font-size: 11px;
-    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-3);
   }
 
   .player-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    flex-shrink: 0;
   }
 
-  .sit-toggle-btn {
-    font-size: 12px;
-    padding: 6px 10px;
+  .icon-menu-btn {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
+    color: var(--text-3);
     border-radius: var(--radius-sm);
   }
 
-  .sit-toggle-btn.active-state {
-    color: var(--text-secondary);
-  }
-
-  .sit-toggle-btn.sit-state {
-    color: var(--accent-emerald);
-    background: rgba(16, 185, 129, 0.1);
-  }
-
-  .delete-p-btn {
-    color: var(--text-muted);
-    font-size: 12px;
-    padding: 6px 8px;
-  }
-
-  .delete-p-btn:hover {
-    color: #fb7185;
+  .icon-menu-btn:hover {
+    color: var(--text-1);
+    background: var(--bg-subtle-hover);
   }
 
   .empty-players {
     text-align: center;
-    padding: 24px;
-    color: var(--text-secondary);
+    padding: var(--sp-5);
+    color: var(--text-2);
   }
 </style>

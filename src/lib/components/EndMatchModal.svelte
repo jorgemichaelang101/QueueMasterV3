@@ -2,6 +2,7 @@
   import { sessionStore } from '../state/session.svelte';
   import type { Court, Player } from '../types';
   import SkillBadge from './SkillBadge.svelte';
+  import Icon from './Icon.svelte';
 
   interface Props {
     court: Court | null;
@@ -24,40 +25,61 @@
     sessionStore.endMatch(court.id, selectedWinner, scoreA, scoreB);
     onClose();
   }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (isOpen && e.key === 'Escape') {
+      onClose();
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen && court && court.match}
   {@const match = court.match}
-  <div class="modal-backdrop" onclick={onClose} role="dialog" aria-modal="true" tabindex="-1">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <div class="modal-sheet" onclick={(e) => e.stopPropagation()} role="document">
+  <div
+    class="modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Finish Match — Court {court.courtNumber}"
+    tabindex="-1"
+    onclick={(e) => {
+      if (e.target === e.currentTarget) onClose();
+    }}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') onClose();
+    }}
+  >
+    <div class="modal-sheet">
       <div class="sheet-handle"></div>
 
       <div class="sheet-header">
         <div>
-          <h3>Finish Match — Court {court.courtNumber}</h3>
-          <p class="subtext">Select the winning team or skip recording a winner</p>
+          <h3>Finish Match · Court {court.courtNumber}</h3>
+          <p class="subtext">Select the winning team or mark as casual</p>
         </div>
-        <button class="btn-ghost" onclick={onClose} type="button" aria-label="Close">✕</button>
+        <button class="btn-ghost icon-close" onclick={onClose} type="button" aria-label="Close">
+          <Icon name="x" size={20} />
+        </button>
       </div>
 
       <!-- Winner Selection Buttons -->
       <div class="winner-selection-grid">
-        <!-- Team A Winner Card -->
         <button
-          class="winner-card team-a {selectedWinner === 'A' ? 'selected' : ''}"
-          onclick={() => selectedWinner = 'A'}
+          class="winner-card {selectedWinner === 'A' ? 'selected' : ''}"
+          onclick={() => (selectedWinner = 'A')}
           type="button"
         >
           <div class="winner-title-row">
-            <span class="winner-tag">Team A Won 🏆</span>
+            <Icon name="trophy" size={16} />
+            <span class="winner-tag">Team A Won</span>
           </div>
           <div class="players-list">
             {#each match.teamA as pId}
               {@const p = getPlayer(pId)}
               {#if p}
                 <div class="player-line">
-                  <span>{p.name}</span>
+                  <span class="p-name">{p.name}</span>
                   <SkillBadge skill={p.skill} compact={true} />
                 </div>
               {/if}
@@ -65,21 +87,21 @@
           </div>
         </button>
 
-        <!-- Team B Winner Card -->
         <button
-          class="winner-card team-b {selectedWinner === 'B' ? 'selected' : ''}"
-          onclick={() => selectedWinner = 'B'}
+          class="winner-card {selectedWinner === 'B' ? 'selected' : ''}"
+          onclick={() => (selectedWinner = 'B')}
           type="button"
         >
           <div class="winner-title-row">
-            <span class="winner-tag">Team B Won 🏆</span>
+            <Icon name="trophy" size={16} />
+            <span class="winner-tag">Team B Won</span>
           </div>
           <div class="players-list">
             {#each match.teamB as pId}
               {@const p = getPlayer(pId)}
               {#if p}
                 <div class="player-line">
-                  <span>{p.name}</span>
+                  <span class="p-name">{p.name}</span>
                   <SkillBadge skill={p.skill} compact={true} />
                 </div>
               {/if}
@@ -92,20 +114,20 @@
       <div class="skip-winner-wrap">
         <button
           class="skip-btn {selectedWinner === null ? 'selected' : ''}"
-          onclick={() => selectedWinner = null}
+          onclick={() => (selectedWinner = null)}
           type="button"
         >
-          <span>⚪ No Winner / Casual Match</span>
+          No Winner / Casual Match
         </button>
       </div>
 
       <!-- Optional Exact Score Inputs -->
       <div class="score-inputs-card">
         <div class="score-header">
-          <span>Optional Final Score</span>
-          <span class="score-hint">(leave empty if not keeping scores)</span>
+          <span>Final Score</span>
+          <span class="score-hint">Optional</span>
         </div>
-        <div class="score-inputs-row">
+        <div class="score-inputs-row tabular-nums">
           <div class="score-field">
             <label for="score-a">Team A</label>
             <input
@@ -121,7 +143,7 @@
               }}
             />
           </div>
-          <span class="score-vs">-</span>
+          <span class="score-vs">–</span>
           <div class="score-field">
             <label for="score-b">Team B</label>
             <input
@@ -140,9 +162,10 @@
         </div>
       </div>
 
-      <div class="action-buttons">
+      <div class="sheet-sticky-footer">
         <button class="btn-primary complete-btn" onclick={handleComplete} type="button">
-          ✓ Finish Match & Free Court
+          <Icon name="check" size={18} />
+          Finish Match & Free Court
         </button>
       </div>
     </div>
@@ -154,53 +177,70 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 16px;
+    margin-bottom: var(--sp-4);
+  }
+
+  .sheet-header h3 {
+    font-size: var(--fs-lg);
   }
 
   .subtext {
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    margin-top: 2px;
+  }
+
+  .icon-close {
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
   }
 
   .winner-selection-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
   }
 
   .winner-card {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-subtle);
     border: 2px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    padding: 12px;
+    padding: var(--sp-3);
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    align-items: stretch;
+    gap: var(--sp-2);
     text-align: left;
-    transition: all 0.18s ease;
-  }
-
-  .winner-card:hover {
-    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .winner-card.selected {
-    border-color: var(--accent-emerald);
-    background: rgba(16, 185, 129, 0.12);
-    box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);
+    border-color: var(--c-playing);
+    background: var(--c-playing-tint);
+  }
+
+  .winner-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-2);
+  }
+
+  .winner-card.selected .winner-title-row {
+    color: var(--c-playing);
   }
 
   .winner-tag {
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-1);
   }
 
   .players-list {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-1);
     width: 100%;
   }
 
@@ -208,98 +248,100 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 13px;
-    color: var(--text-secondary);
+    gap: var(--sp-1);
+    min-width: 0;
+  }
+
+  .p-name {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .skip-winner-wrap {
-    margin-bottom: 16px;
+    margin-bottom: var(--sp-3);
   }
 
   .skip-btn {
     width: 100%;
-    padding: 8px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
+    min-height: var(--tap-min);
+    border-radius: var(--radius-md);
+    font-size: var(--fs-sm);
     font-weight: 600;
-    color: var(--text-muted);
-    border: 1px dashed var(--border-subtle);
-    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-2);
+    border: 1px dashed var(--border-strong);
+    background: var(--bg-subtle);
   }
 
   .skip-btn.selected {
-    border-color: var(--text-secondary);
-    color: var(--text-primary);
-    background: rgba(255, 255, 255, 0.08);
+    border-style: solid;
+    border-color: var(--c-action);
+    color: var(--text-1);
+    background: var(--c-action-tint);
   }
 
   .score-inputs-card {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--bg-subtle);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    padding: 12px;
-    margin-bottom: 20px;
+    padding: var(--sp-3);
   }
 
   .score-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 10px;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-2);
+    margin-bottom: var(--sp-2);
   }
 
   .score-hint {
-    font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-3);
+    font-weight: 600;
   }
 
   .score-inputs-row {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 16px;
+    gap: var(--sp-4);
   }
 
   .score-field {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-1);
   }
 
   .score-field label {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    color: var(--text-muted);
+    color: var(--text-3);
   }
 
   .score-field input {
-    width: 72px;
+    width: 80px;
     text-align: center;
-    font-size: 18px;
+    font-size: var(--fs-xl);
     font-weight: 700;
-    padding: 8px;
+    padding: var(--sp-2);
   }
 
   .score-vs {
-    font-size: 18px;
+    font-size: var(--fs-xl);
     font-weight: 700;
-    color: var(--text-muted);
-    margin-top: 14px;
-  }
-
-  .action-buttons {
-    display: flex;
+    color: var(--text-3);
+    margin-top: 18px;
   }
 
   .complete-btn {
     width: 100%;
-    padding: 14px;
-    font-size: 15px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   }
 </style>

@@ -2,6 +2,7 @@
   import { sessionStore } from '../state/session.svelte';
   import { SPORT_DEFAULTS } from '../constants';
   import SkillBadge from '../components/SkillBadge.svelte';
+  import Icon from '../components/Icon.svelte';
 
   let currency = $derived(sessionStore.session?.settings.currency || '₱');
   let sport = $derived(sessionStore.session?.sport || 'badminton');
@@ -11,8 +12,8 @@
   let totalCourtHours = $state(sessionStore.session?.costs.totalCourtHours || 0);
   let shuttleCost = $state(sessionStore.session?.costs.shuttleUnitCost || 90);
   let shuttlesUsed = $state(sessionStore.session?.costs.shuttlesUsed || 0);
+  let showOnlyUnpaid = $state(false);
 
-  // Synchronize internal state whenever session costs change
   $effect(() => {
     if (sessionStore.session) {
       hourlyRate = sessionStore.session.costs.hourlyRate;
@@ -36,7 +37,22 @@
     saveCosts();
   }
 
+  function adjustHours(delta: number) {
+    totalCourtHours = Math.max(0, Math.round((Number(totalCourtHours) + delta) * 4) / 4);
+    saveCosts();
+  }
+
   let costSummary = $derived(sessionStore.getCostSummary());
+
+  let unpaidCount = $derived(
+    sessionStore.session?.players.filter(p => !p.payment.paid).length || 0
+  );
+
+  let displayedPlayers = $derived(() => {
+    const list = sessionStore.session?.players || [];
+    if (!showOnlyUnpaid) return list;
+    return list.filter(p => !p.payment.paid);
+  });
 
   let editingCustomPlayerId = $state<string | null>(null);
   let customInputVal = $state<string>('');
@@ -59,115 +75,39 @@
 </script>
 
 <div class="costs-view">
-  <!-- Top Title Bar -->
-  <div class="costs-header">
-    <div>
-      <h2>Session Costs & Splitting</h2>
-      <p class="costs-sub">Transparent expense calculator & payment settlement</p>
-    </div>
-  </div>
-
-  <!-- Cost Calculator Controls Card -->
-  <div class="glass-card fee-calculator-card">
-    <div class="card-section-label">Session Expense Inputs</div>
-
-    <div class="inputs-grid">
-      <!-- Hourly Rate -->
-      <div class="input-field">
-        <label for="court-hourly-rate">Court Hourly Rate ({currency})</label>
-        <input
-          id="court-hourly-rate"
-          type="number"
-          min="0"
-          step="10"
-          bind:value={hourlyRate}
-          onchange={saveCosts}
-        />
-      </div>
-
-      <!-- Total Hours (Decimal supported) -->
-      <div class="input-field">
-        <label for="total-court-hours">Total Court Hours (e.g. 2.5)</label>
-        <input
-          id="total-court-hours"
-          type="number"
-          min="0"
-          step="0.25"
-          bind:value={totalCourtHours}
-          onchange={saveCosts}
-        />
-      </div>
-
-      <!-- Equipment Unit Cost -->
-      <div class="input-field">
-        <label for="equipment-unit-cost">{defaults.equipmentName} Unit Cost ({currency})</label>
-        <input
-          id="equipment-unit-cost"
-          type="number"
-          min="0"
-          step="5"
-          bind:value={shuttleCost}
-          onchange={saveCosts}
-        />
-      </div>
-
-      <!-- Equipment Used Stepper -->
-      <div class="input-field">
-        <span class="label-text">{defaults.equipmentName}s Used</span>
-        <div class="stepper-box">
-          <button class="step-btn" onclick={() => adjustShuttles(-1)} type="button">-</button>
-          <input
-            id="shuttles-used-input"
-            class="stepper-input"
-            type="number"
-            min="0"
-            aria-label="Shuttlecocks used"
-            bind:value={shuttlesUsed}
-            onchange={saveCosts}
-          />
-          <button class="step-btn" onclick={() => adjustShuttles(1)} type="button">+</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Grand Total Summary Card -->
+  <!-- Per-Head Split & Grand Total Summary Card -->
   {#if costSummary}
-    <div class="glass-card summary-card">
-      <div class="summary-top">
-        <div class="summary-breakdown-row">
-          <div class="breakdown-item">
-            <span class="bd-label">Court Total:</span>
-            <span class="bd-val">{currency}{costSummary.courtTotal.toFixed(2)}</span>
-          </div>
-          <div class="breakdown-item">
-            <span class="bd-label">{defaults.equipmentName} Total:</span>
-            <span class="bd-val">{currency}{costSummary.equipmentTotal.toFixed(2)}</span>
-          </div>
+    <div class="surface-card summary-card">
+      <div class="split-hero">
+        <div class="split-info">
+          <span class="split-overline">Standard Split / Player</span>
+          <span class="split-sub">Across {costSummary.totalAttendees} attendees</span>
         </div>
-
-        <div class="grand-total-row">
-          <span class="gt-label">Grand Total</span>
-          <span class="gt-val">{currency}{costSummary.grandTotal.toFixed(2)}</span>
+        <div class="split-amount tabular-nums">
+          {currency}{costSummary.standardPerPlayer.toFixed(2)}
         </div>
       </div>
 
-      <!-- Per-player Split Banner -->
-      <div class="split-banner">
-        <div class="split-info">
-          <span class="split-label">Standard Split / Attendee</span>
-          <span class="split-sub">Split equally across {costSummary.totalAttendees} players</span>
+      <div class="summary-breakdown tabular-nums">
+        <div class="bd-item">
+          <span class="bd-label">Court ({totalCourtHours}h)</span>
+          <span class="bd-val">{currency}{costSummary.courtTotal.toFixed(2)}</span>
         </div>
-        <div class="split-amount">
-          {currency}{costSummary.standardPerPlayer.toFixed(2)}
+        <div class="bd-item">
+          <span class="bd-label">{defaults.equipmentName}s ({shuttlesUsed})</span>
+          <span class="bd-val">{currency}{costSummary.equipmentTotal.toFixed(2)}</span>
+        </div>
+        <div class="bd-item total">
+          <span class="bd-label">Grand Total</span>
+          <span class="bd-val">{currency}{costSummary.grandTotal.toFixed(2)}</span>
         </div>
       </div>
 
       <!-- Collection Progress Bar -->
       <div class="collection-progress">
-        <div class="progress-labels">
+        <div class="progress-labels tabular-nums">
           <span class="prog-col">Collected: {currency}{costSummary.totalCollected.toFixed(2)}</span>
-          <span class="prog-rem">Remaining: {currency}{costSummary.totalOutstanding.toFixed(2)}</span>
+          <span class="prog-rem">Unpaid: {currency}{costSummary.totalOutstanding.toFixed(2)}</span>
         </div>
         <div class="progress-track">
           <div
@@ -179,71 +119,194 @@
     </div>
   {/if}
 
+  <!-- Expense Inputs Card -->
+  <div class="surface-card fee-calculator-card">
+    <div class="card-section-label">Expense Calculator</div>
+
+    <div class="inputs-grid">
+      <div class="input-field">
+        <label for="court-hourly-rate">Court Rate / Hr ({currency})</label>
+        <input
+          id="court-hourly-rate"
+          class="tabular-nums"
+          type="number"
+          min="0"
+          step="10"
+          bind:value={hourlyRate}
+          onchange={saveCosts}
+        />
+      </div>
+
+      <div class="input-field">
+        <span class="label-text">Total Court Hours</span>
+        <div class="stepper-box">
+          <button
+            class="step-btn"
+            onclick={() => adjustHours(-0.5)}
+            type="button"
+            aria-label="Decrease court hours"
+          >
+            <Icon name="minus" size={16} />
+          </button>
+          <input
+            id="total-court-hours"
+            class="stepper-input tabular-nums"
+            type="number"
+            min="0"
+            step="0.25"
+            aria-label="Total court hours"
+            bind:value={totalCourtHours}
+            onchange={saveCosts}
+          />
+          <button
+            class="step-btn"
+            onclick={() => adjustHours(0.5)}
+            type="button"
+            aria-label="Increase court hours"
+          >
+            <Icon name="plus" size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div class="input-field">
+        <label for="equipment-unit-cost">{defaults.equipmentName} Cost ({currency})</label>
+        <input
+          id="equipment-unit-cost"
+          class="tabular-nums"
+          type="number"
+          min="0"
+          step="5"
+          bind:value={shuttleCost}
+          onchange={saveCosts}
+        />
+      </div>
+
+      <div class="input-field">
+        <span class="label-text">{defaults.equipmentName}s Used</span>
+        <div class="stepper-box">
+          <button
+            class="step-btn"
+            onclick={() => adjustShuttles(-1)}
+            type="button"
+            aria-label="Decrease {defaults.equipmentName}s used"
+          >
+            <Icon name="minus" size={16} />
+          </button>
+          <input
+            id="shuttles-used-input"
+            class="stepper-input tabular-nums"
+            type="number"
+            min="0"
+            aria-label="{defaults.equipmentName}s used"
+            bind:value={shuttlesUsed}
+            onchange={saveCosts}
+          />
+          <button
+            class="step-btn"
+            onclick={() => adjustShuttles(1)}
+            type="button"
+            aria-label="Increase {defaults.equipmentName}s used"
+          >
+            <Icon name="plus" size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Player Payments Roster -->
   <div class="section-group">
     <div class="section-header">
-      <h4>Player Payments ({sessionStore.session?.players.length || 0})</h4>
-      <span class="section-sub">Tap status to toggle Paid / Unpaid</span>
+      <h3>Payments ({sessionStore.session?.players.length || 0})</h3>
+
+      {#if (sessionStore.session?.players.length || 0) > 0}
+        <button
+          class="filter-chip {showOnlyUnpaid ? 'active' : ''}"
+          onclick={() => (showOnlyUnpaid = !showOnlyUnpaid)}
+          type="button"
+        >
+          Unpaid only ({unpaidCount})
+        </button>
+      {/if}
     </div>
 
     {#if !sessionStore.session || sessionStore.session.players.length === 0}
-      <div class="empty-state glass-card">
+      <div class="empty-state surface-card">
         <p>No players in session yet. Add players in the Players tab to split costs.</p>
+      </div>
+    {:else if displayedPlayers().length === 0}
+      <div class="empty-state surface-card">
+        <p>All players are marked as paid.</p>
       </div>
     {:else}
       <div class="payments-list">
-        {#each sessionStore.session.players as player (player.id)}
+        {#each displayedPlayers() as player (player.id)}
           {@const pBreakdown = costSummary?.breakdown.find(b => b.playerId === player.id)}
-          <div class="payment-card glass-card {player.payment.paid ? 'is-paid' : 'is-unpaid'}">
+          <div class="payment-card surface-card {player.payment.paid ? 'is-paid' : 'is-unpaid'}">
             <div class="payment-card-left">
               <div class="p-name-row">
                 <span class="p-name">{player.name}</span>
                 <SkillBadge skill={player.skill} compact={true} />
               </div>
 
-              <!-- Amount Due & Custom Override Info -->
               <div class="amount-line">
                 {#if editingCustomPlayerId === player.id}
                   <div class="inline-edit-custom">
                     <input
-                      class="custom-amt-input"
+                      class="custom-amt-input tabular-nums"
                       type="number"
                       placeholder="0"
                       step="1"
+                      aria-label="Custom payment amount for {player.name}"
                       bind:value={customInputVal}
                     />
-                    <button class="btn-primary save-custom-btn" onclick={() => saveCustom(player.id)} type="button">✓</button>
-                    <button class="btn-ghost reset-custom-btn" onclick={() => clearCustom(player.id)} type="button">Reset</button>
+                    <button
+                      class="btn-primary save-custom-btn"
+                      onclick={() => saveCustom(player.id)}
+                      type="button"
+                      aria-label="Save custom amount"
+                    >
+                      <Icon name="check" size={16} />
+                    </button>
+                    <button
+                      class="btn-ghost reset-custom-btn"
+                      onclick={() => clearCustom(player.id)}
+                      type="button"
+                    >
+                      Reset
+                    </button>
                   </div>
                 {:else}
-                  <span class="amt-due">
+                  <span class="amt-due tabular-nums">
                     {currency}{(pBreakdown?.amountDue || 0).toFixed(2)}
                   </span>
                   {#if player.payment.customAmount !== null}
-                    <span class="custom-badge" title="Manual override">Custom</span>
+                    <span class="custom-badge">Custom</span>
                   {/if}
                   <button
                     class="btn-ghost edit-custom-btn"
                     onclick={() => startEditCustom(player.id, player.payment.customAmount)}
                     type="button"
-                    title="Set custom amount (e.g. 0 for guest)"
+                    aria-label="Edit custom amount for {player.name}"
                   >
-                    ✏️
+                    <Icon name="edit" size={14} />
+                    <span>Override</span>
                   </button>
                 {/if}
               </div>
             </div>
 
-            <!-- Paid / Unpaid Toggle Button -->
             <button
               class="pay-toggle-btn {player.payment.paid ? 'paid' : 'unpaid'}"
               onclick={() => sessionStore.togglePlayerPaid(player.id)}
               type="button"
             >
               {#if player.payment.paid}
-                <span class="check-icon">✓</span> Paid
+                <Icon name="check" size={16} />
+                Paid
               {:else}
-                <span class="cross-icon">✕</span> Unpaid
+                Mark Paid
               {/if}
             </button>
           </div>
@@ -257,104 +320,190 @@
   .costs-view {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--sp-4);
   }
 
-  .costs-header {
+  .summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+
+  .split-hero {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    background: var(--c-action-tint);
+    border: 1px solid var(--c-action-border);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius-md);
   }
 
-  .costs-sub {
-    font-size: 13px;
-    color: var(--text-secondary);
+  .split-info {
+    display: flex;
+    flex-direction: column;
   }
 
-  .fee-calculator-card {
-    padding: 16px;
-  }
-
-  .card-section-label {
-    font-size: 12px;
+  .split-overline {
+    font-size: var(--fs-xs);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
+    color: var(--c-action);
+  }
+
+  .split-sub {
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+
+  .split-amount {
+    font-size: var(--fs-2xl);
+    font-weight: 800;
+    color: var(--text-1);
+    font-family: var(--font-heading);
+    line-height: 1;
+  }
+
+  .summary-breakdown {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--sp-3);
+  }
+
+  .bd-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bd-label {
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+
+  .bd-val {
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--text-1);
+  }
+
+  .bd-item.total .bd-val {
+    color: var(--c-action);
+  }
+
+  .collection-progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+
+  .progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+  }
+
+  .prog-col {
+    color: var(--c-playing);
+  }
+
+  .prog-rem {
+    color: var(--c-ready);
+  }
+
+  .progress-track {
+    height: 8px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--c-playing);
+    border-radius: var(--radius-full);
+    transition: width 0.25s ease;
+  }
+
+  .fee-calculator-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .card-section-label {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-2);
   }
 
   .inputs-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    width: 100%;
+    gap: var(--sp-3);
   }
 
   @media (max-width: 360px) {
     .inputs-grid {
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: 1fr;
     }
   }
 
   .input-field {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 6px;
+    gap: var(--sp-1);
     min-width: 0;
-    width: 100%;
+  }
+
+  .input-field label,
+  .input-field .label-text {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--text-2);
   }
 
   .input-field > input {
     width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-  }
-
-  .input-field label, .input-field .label-text {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    line-height: 1.3;
-    overflow-wrap: break-word;
   }
 
   .stepper-box {
     display: flex;
     align-items: center;
-    background: rgba(15, 23, 42, 0.8);
+    background: var(--bg-input);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     overflow: hidden;
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
   }
 
   .step-btn {
+    width: var(--tap-min);
+    min-height: var(--tap-min);
+    padding: 0;
+    background: var(--bg-subtle);
+    color: var(--text-1);
     flex-shrink: 0;
-    padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.06);
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
   }
 
   .step-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--bg-subtle-hover);
   }
 
   .stepper-input {
-    flex: 1 1 0%;
+    flex: 1;
     min-width: 0;
-    width: 100%;
     border: none;
     background: transparent;
     text-align: center;
-    font-size: 16px;
+    font-size: var(--fs-md);
     font-weight: 700;
-    padding: 8px 4px;
+    padding: 0 var(--sp-1);
     -moz-appearance: textfield;
     appearance: textfield;
   }
@@ -365,249 +514,158 @@
     margin: 0;
   }
 
-  .summary-card {
-    padding: 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
-    border-color: rgba(56, 189, 248, 0.25);
-  }
-
-  .summary-top {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .summary-breakdown-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: var(--text-secondary);
-  }
-
-  .grand-total-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    border-top: 1px solid var(--border-subtle);
-    padding-top: 10px;
-  }
-
-  .gt-label {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .gt-val {
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--accent-cyan);
-    font-family: var(--font-heading);
-  }
-
-  .split-banner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(56, 189, 248, 0.1);
-    border: 1px solid rgba(56, 189, 248, 0.25);
-    padding: 12px 14px;
-    border-radius: var(--radius-md);
-  }
-
-  .split-info {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .split-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent-cyan);
-  }
-
-  .split-sub {
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  .split-amount {
-    font-size: 20px;
-    font-weight: 800;
-    color: #fff;
-  }
-
-  .collection-progress {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .progress-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .prog-col {
-    color: var(--accent-emerald);
-  }
-
-  .prog-rem {
-    color: var(--accent-amber);
-  }
-
-  .progress-track {
-    height: 8px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-full);
-    overflow: hidden;
-  }
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #10b981, #34d399);
-    border-radius: var(--radius-full);
-    transition: width 0.3s ease;
-  }
-
   .section-group {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--sp-3);
   }
 
   .section-header {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: center;
   }
 
-  .section-sub {
-    font-size: 11px;
-    color: var(--text-muted);
+  .section-header h3 {
+    font-size: var(--fs-lg);
+  }
+
+  .filter-chip {
+    min-height: 36px;
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--radius-full);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-2);
+  }
+
+  .filter-chip.active {
+    background: var(--c-ready-tint);
+    border-color: var(--c-ready-border);
+    color: var(--c-ready);
   }
 
   .payments-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-2);
   }
 
   .payment-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 14px;
+    padding: var(--sp-3);
+    gap: var(--sp-2);
   }
 
   .payment-card.is-paid {
-    border-color: rgba(16, 185, 129, 0.25);
+    border-color: var(--c-playing-border);
   }
 
   .payment-card-left {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-1);
+    min-width: 0;
   }
 
   .p-name-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
   }
 
   .p-name {
-    font-size: 14px;
+    font-size: var(--fs-md);
     font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .amount-line {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
   }
 
   .amt-due {
-    font-size: 15px;
+    font-size: var(--fs-md);
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-1);
   }
 
   .custom-badge {
-    font-size: 10px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--accent-amber);
-    background: rgba(245, 158, 11, 0.15);
-    padding: 1px 6px;
+    color: var(--c-ready);
+    background: var(--c-ready-tint);
+    padding: 2px var(--sp-2);
     border-radius: var(--radius-full);
   }
 
   .edit-custom-btn {
-    padding: 2px 4px;
-    font-size: 12px;
+    min-height: 32px;
+    padding: 2px var(--sp-2);
+    font-size: var(--fs-xs);
+    gap: 4px;
+    color: var(--text-3);
   }
 
   .inline-edit-custom {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-1);
   }
 
   .custom-amt-input {
-    width: 65px;
-    padding: 4px 6px;
-    font-size: 13px;
+    width: 84px;
+    min-height: 38px;
+    padding: var(--sp-1) var(--sp-2);
+    font-size: var(--fs-sm);
     text-align: center;
   }
 
   .save-custom-btn {
-    padding: 4px 8px;
-    font-size: 12px;
+    min-height: 38px;
+    padding: var(--sp-1) var(--sp-2);
   }
 
   .reset-custom-btn {
-    padding: 4px 6px;
-    font-size: 11px;
-    color: var(--text-muted);
+    min-height: 38px;
+    padding: var(--sp-1) var(--sp-2);
+    font-size: var(--fs-xs);
   }
 
   .pay-toggle-btn {
-    padding: 8px 14px;
+    min-height: var(--tap-min);
+    padding: var(--sp-2) var(--sp-3);
     border-radius: var(--radius-md);
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 700;
-    transition: all 0.15s ease;
+    flex-shrink: 0;
   }
 
   .pay-toggle-btn.paid {
-    background: rgba(16, 185, 129, 0.15);
-    color: var(--accent-emerald);
-    border: 1px solid rgba(16, 185, 129, 0.35);
-  }
-
-  .pay-toggle-btn.paid:hover {
-    background: rgba(16, 185, 129, 0.25);
+    background: var(--c-playing-tint);
+    color: var(--c-playing);
+    border: 1px solid var(--c-playing-border);
   }
 
   .pay-toggle-btn.unpaid {
-    background: rgba(244, 63, 94, 0.12);
-    color: #fb7185;
-    border: 1px solid rgba(244, 63, 94, 0.25);
-  }
-
-  .pay-toggle-btn.unpaid:hover {
-    background: rgba(244, 63, 94, 0.2);
+    background: var(--bg-subtle);
+    color: var(--text-1);
+    border: 1px solid var(--border-strong);
   }
 
   .empty-state {
     text-align: center;
-    padding: 24px;
-    color: var(--text-secondary);
+    padding: var(--sp-5);
+    color: var(--text-2);
   }
 </style>

@@ -91,4 +91,36 @@ describe('SessionStore operations', () => {
 
     expect(sessionStore.session?.players.length).toBe(1);
   });
+
+  it('accepts a single selected match from a multi-match Magic Wand suggestion', () => {
+    sessionStore.startSession('badminton', 'doubles', 2, '₱');
+    const names = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8'];
+    names.forEach((name, idx) => {
+      sessionStore.addPlayer(name, ((idx % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6);
+    });
+
+    const suggestion = sessionStore.suggestMatches(2);
+    expect(suggestion.matches.length).toBe(2);
+
+    const firstMatch = suggestion.matches[0];
+    const secondMatch = suggestion.matches[1];
+
+    sessionStore.acceptMatches([secondMatch]);
+
+    const courts = sessionStore.session!.courts;
+    expect(courts[0].status).toBe('ready');
+    expect(courts[0].match?.id).toBe(secondMatch.id);
+    expect(courts[0].match?.teamA).toEqual(secondMatch.teamA);
+    expect(courts[0].match?.teamB).toEqual(secondMatch.teamB);
+
+    expect(courts[1].status).toBe('idle');
+    expect(courts[1].match).toBeNull();
+    expect(sessionStore.session!.nextUp.length).toBe(0);
+
+    const availableIds = new Set(sessionStore.getAvailablePlayers().map(p => p.id));
+    expect(availableIds.size).toBe(4);
+    for (const pid of [...firstMatch.teamA, ...firstMatch.teamB]) {
+      expect(availableIds.has(pid)).toBe(true);
+    }
+  });
 });
